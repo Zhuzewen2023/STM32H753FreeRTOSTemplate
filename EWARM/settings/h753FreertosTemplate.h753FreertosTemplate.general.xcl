@@ -1,0 +1,23 @@
+"D:\IAR\Embedded Workbench 9.2_2\arm\bin\armPROC.dll" 
+
+"D:\IAR\Embedded Workbench 9.2_2\arm\bin\armSTLINK.dll" 
+
+"D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\h753FreertosTemplate\Exe\h753FreertosTemplate.out" 
+
+--plugin="D:\IAR\Embedded Workbench 9.2_2\arm\bin\armbat.dll" 
+
+--device_macro="D:\IAR\Embedded Workbench 9.2_2\arm/config/debugger/ST/STM32H7xx.dmac" 
+
+--device_macro="D:\IAR\Embedded Workbench 9.2_2\arm/config/debugger/ST/STM32H7xx_M7.dmac" 
+
+--device_macro="D:\IAR\Embedded Workbench 9.2_2\arm/config/debugger/ST/STM32H7xx_DBG.dmac" 
+
+--device_macro="D:\IAR\Embedded Workbench 9.2_2\arm/config/debugger/ST/STM32H7xx_OB.dmac" 
+
+--device_macro="D:\IAR\Embedded Workbench 9.2_2\arm/config/debugger/ST/STM32H7xx_TRACE.dmac" 
+
+--flash_loader="D:\IAR\Embedded Workbench 9.2_2\arm/config/flashloader/ST/FlashSTM32H7xxxI.board" 
+
+
+
+
