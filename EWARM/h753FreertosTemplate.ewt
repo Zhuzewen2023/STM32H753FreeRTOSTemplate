@@ -1433,11 +1433,17 @@
             <file>
                 <name>$PROJ_DIR$\startup_stm32h753xx.s</name>
             </file>
+            <file>
+                <name>$PROJ_DIR$\stm32h753xx_flash.icf</name>
+            </file>
         </group>
         <group>
             <name>User</name>
             <group>
                 <name>Core</name>
+                <file>
+                    <name>$PROJ_DIR$\..\Core\Src\dma.c</name>
+                </file>
                 <file>
                     <name>$PROJ_DIR$\..\Core\Src\freertos.c</name>
                 </file>
@@ -1458,6 +1464,9 @@
                 </file>
                 <file>
                     <name>$PROJ_DIR$\..\Core\Src\stm32h7xx_it.c</name>
+                </file>
+                <file>
+                    <name>$PROJ_DIR$\..\Core\Src\usart.c</name>
                 </file>
             </group>
         </group>
@@ -1482,16 +1491,37 @@
         <group>
             <name>Common_Drv</name>
             <file>
+                <name>$PROJ_DIR$\..\Drivers\BSP\Common_Drv\cpu_flash.c</name>
+            </file>
+            <file>
+                <name>$PROJ_DIR$\..\Drivers\BSP\Common_Drv\cpu_flash.h</name>
+            </file>
+            <file>
+                <name>$PROJ_DIR$\..\Drivers\BSP\Common_Drv\delay.c</name>
+            </file>
+            <file>
+                <name>$PROJ_DIR$\..\Drivers\BSP\Common_Drv\iwdg.c</name>
+            </file>
+            <file>
+                <name>$PROJ_DIR$\..\Drivers\BSP\Common_Drv\iwdg.h</name>
+            </file>
+            <file>
+                <name>$PROJ_DIR$\..\Drivers\BSP\Common_Drv\rtc_timeStamp.c</name>
+            </file>
+            <file>
+                <name>$PROJ_DIR$\..\Drivers\BSP\Common_Drv\rtc_timeStamp.h</name>
+            </file>
+            <file>
                 <name>$PROJ_DIR$\..\Drivers\BSP\Common_Drv\timerForDebug.c</name>
             </file>
             <file>
                 <name>$PROJ_DIR$\..\Drivers\BSP\Common_Drv\timerForDebug.h</name>
             </file>
             <file>
-                <name>$PROJ_DIR$\..\Drivers\BSP\Common_Drv\uart_dma.c</name>
+                <name>$PROJ_DIR$\..\Drivers\BSP\Common_Drv\wwdg.c</name>
             </file>
             <file>
-                <name>$PROJ_DIR$\..\Drivers\BSP\Common_Drv\uart_dma.h</name>
+                <name>$PROJ_DIR$\..\Drivers\BSP\Common_Drv\wwdg.h</name>
             </file>
         </group>
         <group>

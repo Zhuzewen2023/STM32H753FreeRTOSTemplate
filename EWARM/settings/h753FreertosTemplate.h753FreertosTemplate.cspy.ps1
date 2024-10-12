@@ -23,9 +23,9 @@
 
 if ($debugfile -eq "")
 {
-& "D:\IAR\Embedded Workbench 9.2_2\common\bin\cspybat" -f "D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\settings\h753FreertosTemplate.h753FreertosTemplate.general.xcl" --backend -f "D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\settings\h753FreertosTemplate.h753FreertosTemplate.driver.xcl" 
+& "D:\IAR\Embedded Workbench 9.2_2\common\bin\cspybat" -f "D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\settings\h753FreertosTemplate.h753FreertosTemplate.general.xcl" --backend -f "D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\settings\h753FreertosTemplate.h753FreertosTemplate.driver.xcl" 
 }
 else
 {
-& "D:\IAR\Embedded Workbench 9.2_2\common\bin\cspybat" -f "D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\settings\h753FreertosTemplate.h753FreertosTemplate.general.xcl" --debug_file=$debugfile --backend -f "D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\settings\h753FreertosTemplate.h753FreertosTemplate.driver.xcl" 
+& "D:\IAR\Embedded Workbench 9.2_2\common\bin\cspybat" -f "D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\settings\h753FreertosTemplate.h753FreertosTemplate.general.xcl" --debug_file=$debugfile --backend -f "D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\settings\h753FreertosTemplate.h753FreertosTemplate.driver.xcl" 
 }

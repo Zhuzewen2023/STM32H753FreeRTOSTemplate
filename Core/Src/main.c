@@ -19,7 +19,9 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
+#include "dma.h"
 #include "memorymap.h"
+#include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -28,15 +30,40 @@
 #include "task.h"
 #include "stm32h7xx_nucleo.h"
 #include "croutine.h"
-#include "uart_dma.h"
 #include "timerForDebug.h"
+#include "iwdg.h"
+#include "wwdg.h"
+#include "delay.h"
+#include "rtc_timeStamp.h"
+#include "stm32h7xx.h"
 #include <string.h>
 #include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+/* 定义在512KB AXI SRAM里面的变量 */
+#pragma location = ".RAM_D1"  
+uint32_t AXISRAMBuf[10];
+#pragma location = ".RAM_D1"  
+uint16_t AXISRAMCount;
 
+/* 定义在128KB SRAM1(0x30000000) + 128KB SRAM2(0x30020000) + 32KB SRAM3(0x30040000)里面的变量 */
+#pragma location = ".RAM_D2" 
+uint32_t D2SRAMBuf[10];
+#pragma location = ".RAM_D2" 
+uint16_t D2SRAMCount;
+
+/* 定义在64KB SRAM4(0x38000000)里面的变量 */
+#pragma location = ".RAM_D3"  
+uint32_t D3SRAMBuf[10];
+#pragma location = ".RAM_D3"  
+uint16_t D3SRAMCount;
+
+#pragma location = ".RAM_BKP"
+uint32_t BKPSRAMBuf[10];
+#pragma location = ".RAM_BKP"
+uint16_t BKPSRAMCount;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -46,7 +73,9 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-extern UART_HandleTypeDef UartHandle;
+extern IWDG_HandleTypeDef IwdgHandle;
+extern WWDG_HandleTypeDef   WwdgHandle;
+extern uint32_t wwdgDelayNum;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -65,11 +94,18 @@ static void vTaskLED(void *pvParameters);
 static void vTaskMsgPro(void *pvParameters);
 static void vTaskStart(void *pvParameters);
 static void AppTaskCreate (void);
+static void vTaskIwdg(void *pvParameters);
+static void vTaskWwdg(void *pvParameters);
+//static void vTaskRtcTimeStamp(void *pvParameters);
 
 static TaskHandle_t xHandleTaskUserIF = NULL;
 static TaskHandle_t xHandleTaskLED = NULL;
 static TaskHandle_t xHandleTaskMsgPro = NULL;
 static TaskHandle_t xHandleTaskStart = NULL;
+static TaskHandle_t xHandleTaskIwdg = NULL;
+static TaskHandle_t xHandleTaskWwdg = NULL;
+//static TaskHandle_t xHandleTaskRtcTimeStamp = NULL;
+
 uint32_t UserButtonStatus = 0;  /* set to 1 after User Button interrupt  */
 /* USER CODE END PFP */
 
@@ -95,7 +131,7 @@ static void vTaskTaskUserIF(void *pvParameters)
     
     if(UserButtonStatus == 1)
     {
-      UserButtonStatus = 0;
+      //UserButtonStatus = 0;
       printf("============================================================\r\n");
       printf("TaskName TaskStatus Priority RemainStack TaskID\r\n");
       vTaskList((char *)pcWriteBuffer);
@@ -105,7 +141,85 @@ static void vTaskTaskUserIF(void *pvParameters)
       vTaskGetRunTimeStats((char *)pcWriteBuffer);
       printf("%s\r\n", pcWriteBuffer);
       
+      RTC_CalendarShow();
+      
+      AXISRAMBuf[0] = AXISRAMCount++;
+      AXISRAMBuf[5] = AXISRAMCount++;
+      AXISRAMBuf[9] = AXISRAMCount++;
+      printf("UserButtonStatus = 1, AXISRAMBuf[0] = %d, AXISRAMBuf[5] = %d, AXISRAMBuf[9] = %d\r\n",AXISRAMBuf[0], AXISRAMBuf[5], AXISRAMBuf[9]);
+      
     }
+    else if(UserButtonStatus == 2)
+    {
+      printf("UserButtonStatus = 2\r\ndelete led task\r\n");
+      if(xHandleTaskLED != NULL)
+      {
+        vTaskDelete(xHandleTaskLED);
+        xHandleTaskLED = NULL;
+      }
+      
+      D2SRAMBuf[0] = D2SRAMCount++;
+      D2SRAMBuf[5] = D2SRAMCount++;
+      D2SRAMBuf[9] = D2SRAMCount++;
+      printf("UserButtonStatus = 2, D2SRAMBuf[0] = %d, D2SRAMBuf[5] = %d, D2SRAMBuf[9] = %d\r\n",D2SRAMBuf[0], D2SRAMBuf[5], D2SRAMBuf[9]);
+    }
+    else if(UserButtonStatus == 3)
+    {
+      printf("UserButtonStatus = 3\r\ncreate led task\r\n");
+      if(xHandleTaskLED == NULL)
+      {
+        xTaskCreate(  vTaskLED,
+                        "vTaskLED",
+                        512,
+                        NULL,
+                        2,
+                        &xHandleTaskLED);
+      }
+      D3SRAMBuf[0] = D3SRAMCount++;
+      D3SRAMBuf[5] = D3SRAMCount++;
+      D3SRAMBuf[9] = D3SRAMCount++;
+      printf("UserButtonStatus = 3, D3SRAMBuf[0] = %d, D3SRAMBuf[5] = %d, D3SRAMBuf[9] = %d\r\n",D3SRAMBuf[0], D3SRAMBuf[5], D3SRAMBuf[9]);
+    }
+    else if(UserButtonStatus == 4)
+    {
+      printf("UserButtonStatus = 4\r\nsuspend led task\r\n");
+      vTaskSuspend(xHandleTaskLED);
+      BKPSRAMBuf[0] = BKPSRAMCount++;
+      BKPSRAMBuf[5] = BKPSRAMCount++;
+      BKPSRAMBuf[9] = BKPSRAMCount++;
+      printf("UserButtonStatus = 3, BKPSRAMBuf[0] = %d, BKPSRAMBuf[5] = %d, BKPSRAMBuf[9] = %d\r\n",BKPSRAMBuf[0], BKPSRAMBuf[5], BKPSRAMBuf[9]);
+    }
+    else if(UserButtonStatus == 5)
+    {
+      printf("UserButtonStatus = 5\r\nresume led task\r\n");
+      vTaskResume(xHandleTaskLED);
+    }
+    else if(UserButtonStatus == 6)
+    {
+      printf("UserButtonStatus = 6\r\nsuspend iwdg feed task\r\n");
+      vTaskSuspend(xHandleTaskIwdg);
+    }
+    else if(UserButtonStatus == 7)
+    {
+      printf("UserButtonStatus = 7\r\nresume iwdg feed task\r\n");
+      vTaskResume(xHandleTaskIwdg);
+    }
+    else if(UserButtonStatus == 8)
+    {
+      printf("UserButtonStatus = 8\r\nsuspend wwdg feed task\r\n");
+      vTaskSuspend(xHandleTaskWwdg);
+    }
+    else if(UserButtonStatus == 9)
+    {
+      printf("UserButtonStatus = 9\r\nresume wwdg feed task\r\n");
+      vTaskResume(xHandleTaskWwdg);
+    }
+    else
+    {
+      UserButtonStatus = 0;
+      printf("UserButtonStatus reset to 0\r\n");
+    }
+    vTaskSuspend(xHandleTaskUserIF);
     vTaskDelay(20);
   }
 }
@@ -123,11 +237,12 @@ static void vTaskLED(void *pvParameters)
 {
   while(1)
   {
+    BSP_LED_Toggle(LED1);
+    BSP_LED_Toggle(LED2);
+    BSP_LED_Toggle(LED3);
+    RTC_CalendarShow();
+    vTaskDelay(1000);
     
-    BSP_LED_On(LED2);
-    vTaskDelay(1000);
-    BSP_LED_Off(LED2);
-    vTaskDelay(1000);
   }
 }
 
@@ -142,13 +257,25 @@ static void vTaskLED(void *pvParameters)
 */
 static void vTaskMsgPro(void *pvParameters)
 {
+  static uint8_t frameBuffer[101] = {0};
+  memset((char *)(&frameBuffer[1]), '2', 100);
+  HAL_UART_Transmit_DMA(&huart6, "uart6 dma transmit success\r\n", strlen("uart6 dma transmit success\r\n"));
+  //static uint8_t rcvBuf[5];
+  //HAL_UART_Receive_DMA(&huart6, rcvBuf, 5);
+  /* Invalidate cache prior to access by CPU */
+  //SCB_InvalidateDCache_by_Addr ((uint32_t *)rcvBuf, 5);
   while(1)
   {
-    BSP_LED_On(LED1);
-    vTaskDelay(1000);
-    BSP_LED_Off(LED1);
-    vTaskDelay(1000);
-    //printf("hello\r\n");
+    //HAL_UART_Transmit_DMA(&huart7, "uart7 dma transmit success\r\n", strlen("uart6 dma transmit success\r\n"));
+    uart7ModeChange(GPIOMODE);
+    HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, GPIO_PIN_RESET);
+    delay_us(88);
+    HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, GPIO_PIN_SET);
+    delay_us(8);
+    uart7ModeChange(UARTMODE);
+    {
+      HAL_UART_Transmit(&huart7, frameBuffer, 100, 0xff);
+    }
     vTaskDelay(1000);
   }
 }
@@ -164,15 +291,59 @@ static void vTaskMsgPro(void *pvParameters)
 */
 static void vTaskStart(void *pvParameters)
 {
+  //uartDmaTest();
   while(1)
   {
     
-    BSP_LED_On(LED3);
-    vTaskDelay(1000);
-    BSP_LED_Off(LED3);
+    
+    vTaskDelay(10);
+  }
+}
+
+static void vTaskIwdg(void *pvParameters)
+{
+  while(1)
+  {
+    vTaskDelay(450);
+    if(HAL_IWDG_Refresh(&IwdgHandle) != HAL_OK)
+    {
+      printf("iwdg feed error\r\n");
+    }
+    else
+    {
+      //printf("iwdg feed success\r\n");
+    }
+    
+  }
+}
+
+static void vTaskWwdg(void *pvParameters)
+{
+  while(1)
+  {
+    vTaskDelay(wwdgDelayNum);
+    if(HAL_WWDG_Refresh(&WwdgHandle) != HAL_OK)
+    {
+      printf("Wwdg feed error\r\n");
+    }
+    else
+    {
+      //printf("Wwdg feed success\r\n");
+    }
+    
+  }
+}
+
+/*
+static void vTaskRtcTimeStamp(void *pvParameters)
+{
+  while(1)
+  {
+    RTC_CalendarShow();
     vTaskDelay(1000);
   }
 }
+*/
 
 static void AppTaskCreate(void)
 {
@@ -180,29 +351,54 @@ static void AppTaskCreate(void)
               "vTaskUserIF",            /*任务�?*/
               512,                      /*stack大小，单位word，也就是4字节*/
               NULL,                     /*任务参数*/
-              1,                        /*任务优先�?*/
+              5,                        /*任务优先�?*/
               &xHandleTaskUserIF);      /*任务句柄*/
   
-    xTaskCreate(vTaskLED,          /*任务函数*/
-              "vTaskLED",              /*任务�?*/
-              512,                       /*stack大小，单位word，也就是4字节*/
-              NULL,                      /*任务参数*/
-              2,                         /*任务优先�?*/
-              &xHandleTaskLED);       /*任务句柄*/
+  xTaskCreate(vTaskLED,          /*任务函数*/
+            "vTaskLED",              /*任务�?*/
+            512,                       /*stack大小，单位word，也就是4字节*/
+            NULL,                      /*任务参数*/
+            2,                         /*任务优先�?*/
+            &xHandleTaskLED);       /*任务句柄*/
     
-      xTaskCreate(vTaskMsgPro,          /*任务函数*/
-              "vTaskMsgPro",            /*任务�?*/
-              512,                      /*stack大小，单位word，也就是4字节*/
-              NULL,                     /*任务参数*/
-              3,                        /*任务优先�?*/
-              &xHandleTaskMsgPro);      /*任务句柄*/
+  xTaskCreate(vTaskMsgPro,          /*任务函数*/
+          "vTaskMsgPro",            /*任务�?*/
+          512,                      /*stack大小，单位word，也就是4字节*/
+          NULL,                     /*任务参数*/
+          3,                        /*任务优先�?*/
+          &xHandleTaskMsgPro);      /*任务句柄*/
       
-        xTaskCreate(vTaskStart,          /*任务函数*/
-              "vTaskStart",            /*任务�?*/
+  xTaskCreate(vTaskStart,          /*任务函数*/
+        "vTaskStart",            /*任务�?*/
+        512,                      /*stack大小，单位word，也就是4字节*/
+        NULL,                     /*任务参数*/
+        4,                        /*任务优先�?*/
+        &xHandleTaskStart);      /*任务句柄*/
+  
+    xTaskCreate(vTaskIwdg,          /*任务函数*/
+              "vTaskIwdg",            /*任务�?*/
               512,                      /*stack大小，单位word，也就是4字节*/
               NULL,                     /*任务参数*/
-              4,                        /*任务优先�?*/
-              &xHandleTaskStart);      /*任务句柄*/
+              5,                        /*任务优先�?*/
+              &xHandleTaskIwdg);      /*任务句柄*/
+    
+    xTaskCreate(vTaskWwdg,
+                "vTaskWwdg",
+                512,
+                NULL,
+                5,
+                &xHandleTaskWwdg
+                );
+    
+    /*
+    xTaskCreate(vTaskRtcTimeStamp,
+                "vTaskRtcTimeStamp",
+                512,
+                NULL,
+                3,
+                &xHandleTaskRtcTimeStamp
+                );
+    */
 }
 /* USER CODE END 0 */
 
@@ -219,6 +415,14 @@ int main(void)
 
   /* MPU Configuration--------------------------------------------------------*/
   MPU_Config();
+
+  /* Enable the CPU Cache */
+
+  /* Enable I-Cache---------------------------------------------------------*/
+  SCB_EnableICache();
+
+  /* Enable D-Cache---------------------------------------------------------*/
+  SCB_EnableDCache();
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -238,15 +442,23 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
+  MX_USART6_UART_Init();
+  MX_UART7_Init();
   /* USER CODE BEGIN 2 */
-  __set_PRIMASK(1);
+  //__set_PRIMASK(1);
   
   BSP_LED_Init(LED1);
   BSP_LED_Init(LED2);
   BSP_LED_Init(LED3);
   BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
-  uartDmaInit();
+
   timer4DebugInit();
+  iwdgInit();
+  wwdgInit();
+  rtcTimeStampInit();
+    
+  
   /*创建任务*/
   AppTaskCreate();
   
@@ -344,7 +556,14 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   if(GPIO_Pin == BUTTON_USER_PIN)
   {  
-    UserButtonStatus = 1;
+    BaseType_t xYieldRequired;
+    UserButtonStatus ++;
+    xYieldRequired = xTaskResumeFromISR(xHandleTaskUserIF);
+    
+    if(xYieldRequired == pdTRUE)
+    {
+      portYIELD_FROM_ISR(xYieldRequired);
+    }
   }
 }
 /* USER CODE END 4 */
@@ -362,15 +581,49 @@ void MPU_Config(void)
   */
   MPU_InitStruct.Enable = MPU_REGION_ENABLE;
   MPU_InitStruct.Number = MPU_REGION_NUMBER0;
-  MPU_InitStruct.BaseAddress = 0x0;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_4GB;
-  MPU_InitStruct.SubRegionDisable = 0x87;
+  MPU_InitStruct.BaseAddress = 0x24000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_512KB;
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL1;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_BUFFERABLE;
+
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /** Initializes and configures the Region and the memory to be protected
+  */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER1;
+  MPU_InitStruct.BaseAddress = 0x30000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_128KB;
+  MPU_InitStruct.SubRegionDisable = 0x0;
   MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
-  MPU_InitStruct.AccessPermission = MPU_REGION_NO_ACCESS;
-  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
-  MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
-  MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
   MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /** Initializes and configures the Region and the memory to be protected
+  */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER2;
+  MPU_InitStruct.BaseAddress = 0x30020000;
+
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /** Initializes and configures the Region and the memory to be protected
+  */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER3;
+  MPU_InitStruct.BaseAddress = 0x30040000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_32KB;
+
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /** Initializes and configures the Region and the memory to be protected
+  */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER4;
+  MPU_InitStruct.BaseAddress = 0x38000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_64KB;
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
   /* Enables the MPU */

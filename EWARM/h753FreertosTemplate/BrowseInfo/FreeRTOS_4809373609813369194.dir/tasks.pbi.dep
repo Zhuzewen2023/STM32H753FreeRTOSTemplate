@@ -1,5 +1,5 @@
-D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\h753FreertosTemplate\BrowseInfo\FreeRTOS_4809373609813369194.dir\tasks.pbi: \
-  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\Middlewares\Third_Party\FreeRTOS\Source\tasks.c \
+D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\h753FreertosTemplate\BrowseInfo\FreeRTOS_4809373609813369194.dir\tasks.pbi: \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\Middlewares\Third_Party\FreeRTOS\Source\tasks.c \
   D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\stdlib.h \
   D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\ycheck.h \
   D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\yvals.h \
@@ -10,21 +10,21 @@ D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\h753FreertosTemplate\Br
   D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\DLib_Product_stdlib.h \
   D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\string.h \
   D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\DLib_Product_string.h \
-  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\FreeRTOS.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\FreeRTOS.h \
   D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\stddef.h \
   D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\stdint.h \
-  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\..\Core\Inc\FreeRTOSConfig.h \
-  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\projdefs.h \
-  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\portable.h \
-  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\deprecated_definitions.h \
-  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\portable\IAR\ARM_CM4F\portmacro.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Core\Inc\FreeRTOSConfig.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\projdefs.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\portable.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\deprecated_definitions.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\portable\IAR\ARM_CM4F\portmacro.h \
   D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\aarch32\intrinsics.h \
   D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\aarch32\iccarm_builtin.h \
   D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\aarch32\iar_intrinsics_common.h \
-  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\mpu_wrappers.h \
-  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\task.h \
-  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\list.h \
-  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\timers.h \
-  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\task.h \
-  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\stack_macros.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\mpu_wrappers.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\task.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\list.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\timers.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\task.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\stack_macros.h \
   D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\stdio.h

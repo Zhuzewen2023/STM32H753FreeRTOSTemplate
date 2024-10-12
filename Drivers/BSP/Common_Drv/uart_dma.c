@@ -2,10 +2,12 @@
 #include "main.h"
 #include "stm32h7xx_it.h"
 #include <string.h>
+#include <stdio.h>
 #include <stdbool.h>
 
 bool UartReady = false;
 UART_HandleTypeDef UartHandle;
+UART_HandleTypeDef huart7;
 uint8_t aTxBuffer[] = " *****UART DMA COMMUNICATION***** ";
 /* Buffer used for reception :
    Size should be a Multiple of cache line size (32 bytes) */
@@ -13,6 +15,11 @@ uint8_t aRxBuffer[RXBUFFERSIZE];
 
 void uartDmaInit(void)
 {
+  __HAL_RCC_DMA2_CLK_ENABLE();
+  HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 1, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
+  HAL_NVIC_SetPriority(DMA2_Stream3_IRQn,1,0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
   /*##-1- Configure the UART peripheral ######################################*/
   /* Put the USART peripheral in the Asynchronous mode (UART Mode) */
   /* UART configured as follows:
@@ -23,7 +30,7 @@ void uartDmaInit(void)
       - Hardware flow control disabled (RTS and CTS signals) */
   UartHandle.Instance        = USARTx;
 
-  UartHandle.Init.BaudRate   = 9600;
+  UartHandle.Init.BaudRate   = 250000;
   UartHandle.Init.WordLength = UART_WORDLENGTH_8B;
   UartHandle.Init.StopBits   = UART_STOPBITS_1;
   UartHandle.Init.Parity     = UART_PARITY_NONE;
@@ -42,16 +49,81 @@ void uartDmaInit(void)
   {
     Error_Handler();
   }
+  
+  huart7.Instance = UART7;
+  huart7.Init.BaudRate = 250000;
+  huart7.Init.WordLength = UART_WORDLENGTH_8B;
+  huart7.Init.StopBits = UART_STOPBITS_2;
+  huart7.Init.Parity = UART_PARITY_NONE;
+  huart7.Init.Mode = UART_MODE_TX_RX;
+  huart7.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart7.Init.OverSampling = UART_OVERSAMPLING_16;
+  if(HAL_UART_Init(&huart7) != HAL_OK)
+  {
+    printf("uart7 init failed\r\n");
+  }
+  
 }
+
+static DMA_HandleTypeDef hdma_tx;
+static DMA_HandleTypeDef hdma_rx;
+
+static DMA_HandleTypeDef hdma_uart7_tx;
+static DMA_HandleTypeDef hdma_uart7_rx;
 
 #if 1
 void HAL_UART_MspInit(UART_HandleTypeDef *huart)
 {
-  static DMA_HandleTypeDef hdma_tx;
-  static DMA_HandleTypeDef hdma_rx;
+
   
   GPIO_InitTypeDef  GPIO_InitStruct;
   
+  if(huart->Instance == UART7)
+  {
+    __HAL_RCC_UART7_CLK_ENABLE();
+    __HAL_RCC_GPIOF_CLK_ENABLE();
+    
+    GPIO_InitStruct.Pin = GPIO_PIN_6 | GPIO_PIN_7;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF7_UART7;
+    HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
+    
+    hdma_uart7_rx.Instance = DMA2_Stream3;
+    hdma_uart7_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
+    hdma_uart7_rx.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_uart7_rx.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_uart7_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    hdma_uart7_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    hdma_uart7_rx.Init.Mode = DMA_CIRCULAR;
+    hdma_uart7_rx.Init.Priority = DMA_PRIORITY_MEDIUM;
+    hdma_uart7_rx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+    if(HAL_DMA_Init(&hdma_uart7_rx) != HAL_OK)
+    {
+      printf("rx dma init failed\r\n");
+    }
+    __HAL_LINKDMA(huart, hdmarx, hdma_uart7_rx);
+    
+    hdma_uart7_tx.Instance = DMA2_Stream2;
+    hdma_uart7_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
+    hdma_uart7_tx.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_uart7_tx.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_uart7_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    hdma_uart7_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    hdma_uart7_tx.Init.Mode = DMA_NORMAL;
+    hdma_uart7_tx.Init.Priority = DMA_PRIORITY_LOW;
+    hdma_uart7_tx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+    if(HAL_DMA_Init(&hdma_uart7_tx) != HAL_OK)
+    {
+      printf("tx dma init failed\r\n");
+    }
+    __HAL_LINKDMA(huart, hdmatx, hdma_uart7_tx);
+    
+    HAL_NVIC_SetPriority(UART7_IRQn, 1, 0);
+    HAL_NVIC_EnableIRQ(UART7_IRQn);
+    
+  }
   /*##-1- Enable peripherals and GPIO Clocks #################################*/
   /* Enable GPIO TX/RX clock */
   USARTx_TX_GPIO_CLK_ENABLE();
@@ -122,15 +194,15 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart)
     
   /*##-4- Configure the NVIC for DMA #########################################*/
   /* NVIC configuration for DMA transfer complete interrupt (USART6_TX) */
-  HAL_NVIC_SetPriority(USARTx_DMA_TX_IRQn, 0, 1);
+  HAL_NVIC_SetPriority(USARTx_DMA_TX_IRQn, 1, 0);
   HAL_NVIC_EnableIRQ(USARTx_DMA_TX_IRQn);
     
   /* NVIC configuration for DMA transfer complete interrupt (USART6_RX) */
-  HAL_NVIC_SetPriority(USARTx_DMA_RX_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(USARTx_DMA_RX_IRQn, 1, 0);
   HAL_NVIC_EnableIRQ(USARTx_DMA_RX_IRQn);
   
   /* NVIC for USART, to catch the TX complete */
-  HAL_NVIC_SetPriority(USARTx_IRQn, 0, 1);
+  HAL_NVIC_SetPriority(USARTx_IRQn, 1, 0);
   HAL_NVIC_EnableIRQ(USARTx_IRQn);
 }
 #endif
@@ -178,7 +250,7 @@ void uartDmaTest(void)
 
   if(HAL_UART_Transmit_DMA(&UartHandle, (uint8_t*)aTxBuffer, TXBUFFERSIZE)!= HAL_OK)
   {
-    Error_Handler();
+    printf("uart  transmit dma  failed\r\n");
   }
   while (UartReady != true)
   {
@@ -187,11 +259,11 @@ void uartDmaTest(void)
   /*##-4- Put UART peripheral in reception process ###########################*/ 
   if(HAL_UART_DeInit(&UartHandle) != HAL_OK)
   {
-    Error_Handler();
+    //Error_Handler();
   }  
   if(HAL_UART_Init(&UartHandle) != HAL_OK)
   {
-    Error_Handler();
+    //Error_Handler();
   }
   //__HAL_UART_ENABLE_IT(&UartHandle, UART_IT_IDLE);
   if(HAL_UART_Receive_DMA(&UartHandle, (uint8_t *)aRxBuffer, RXBUFFERSIZE) != HAL_OK)
@@ -226,6 +298,21 @@ void USART6_IRQHandler(void)
   HAL_UART_IRQHandler(&UartHandle);
 }
 
+void UART7_IRQHandler(void)
+{
+  HAL_UART_IRQHandler(&UartHandle);
+}
+
+void DMA2_Stream2_IRQHandler(void)
+{
+  HAL_DMA_IRQHandler(&hdma_uart7_tx);
+}
+
+void DMA2_Stream3_IRQHandler(void)
+{
+  HAL_DMA_IRQHandler(&hdma_uart7_rx);
+}
+
 /**
   * @brief  Tx Transfer completed callback
   * @param  UartHandle: UART handle. 
@@ -235,7 +322,11 @@ void USART6_IRQHandler(void)
   */
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *UartHandle)
 {
-  UartReady = true;
+  if(UartHandle->Instance == USART6)
+  {
+    UartReady = true;
+    
+  }
   /* Turn LED2 on: Transfer in transmission process is correct */
   //BSP_LED_On(LED2); 
 
@@ -256,7 +347,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
   //{
    // Error_Handler();
   //}
-  UartReady = true;
+  if(UartHandle->Instance == USART6)
+  {
+    UartReady = true;
+  }
   /* Turn LED2 off: Transfer in reception process is correct */
   //BSP_LED_Off(LED2);
   
@@ -278,6 +372,11 @@ void USARTx_DMA_RX_IRQHandler(void)
   HAL_DMA_IRQHandler(UartHandle.hdmarx);
 }
 
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+  printf("uart error, errorCode = %d\r\n", huart->ErrorCode);
+}
+
 /**
   * @brief  This function handles DMA interrupt request.
   * @param  None
@@ -287,6 +386,7 @@ void USARTx_DMA_RX_IRQHandler(void)
   */
 void USARTx_DMA_TX_IRQHandler(void)
 {
+  UartReady = true;
   HAL_DMA_IRQHandler(UartHandle.hdmatx);
 }
 
