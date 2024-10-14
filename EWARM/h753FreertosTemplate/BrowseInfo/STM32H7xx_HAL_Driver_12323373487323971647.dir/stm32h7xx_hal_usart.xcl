@@ -31,6 +31,8 @@ D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Drivers\BSP\STM32H7
 -I
 D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Drivers\BSP\Common_Drv
 -I
+D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\App
+-I
 D:\IAR\Embedded Workbench 9.2_2\arm\inc\c\aarch32
 -I
 D:\IAR\Embedded Workbench 9.2_2\arm\inc
@@ -56,6 +58,8 @@ D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\Drivers\CMSIS\Include
 D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\Drivers\BSP\STM32H7xx_Nucleo
 -I
 D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\Drivers\BSP\Common_Drv
+-I
+D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\App
 -D__CHAR_BITS__=8
 -D__CHAR_MAX__=0xff
 -D__CHAR_MIN__=0

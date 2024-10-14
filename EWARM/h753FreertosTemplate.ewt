@@ -1440,6 +1440,15 @@
         <group>
             <name>User</name>
             <group>
+                <name>App</name>
+                <file>
+                    <name>$PROJ_DIR$\..\App\bootLoader.c</name>
+                </file>
+                <file>
+                    <name>$PROJ_DIR$\..\App\bootLoader.h</name>
+                </file>
+            </group>
+            <group>
                 <name>Core</name>
                 <file>
                     <name>$PROJ_DIR$\..\Core\Src\dma.c</name>

@@ -35,6 +35,7 @@
 #include "wwdg.h"
 #include "delay.h"
 #include "rtc_timeStamp.h"
+#include "bootLoader.h"
 #include "stm32h7xx.h"
 #include <string.h>
 #include <stdio.h>
@@ -196,23 +197,29 @@ static void vTaskTaskUserIF(void *pvParameters)
     }
     else if(UserButtonStatus == 6)
     {
-      printf("UserButtonStatus = 6\r\nsuspend iwdg feed task\r\n");
-      vTaskSuspend(xHandleTaskIwdg);
+      //printf("UserButtonStatus = 6\r\nsuspend iwdg feed task\r\n");
+      //vTaskSuspend(xHandleTaskIwdg);
     }
     else if(UserButtonStatus == 7)
     {
-      printf("UserButtonStatus = 7\r\nresume iwdg feed task\r\n");
-      vTaskResume(xHandleTaskIwdg);
+      //printf("UserButtonStatus = 7\r\nresume iwdg feed task\r\n");
+      //vTaskResume(xHandleTaskIwdg);
     }
     else if(UserButtonStatus == 8)
     {
-      printf("UserButtonStatus = 8\r\nsuspend wwdg feed task\r\n");
-      vTaskSuspend(xHandleTaskWwdg);
+      //printf("UserButtonStatus = 8\r\nsuspend wwdg feed task\r\n");
+      //vTaskSuspend(xHandleTaskWwdg);
     }
     else if(UserButtonStatus == 9)
     {
-      printf("UserButtonStatus = 9\r\nresume wwdg feed task\r\n");
-      vTaskResume(xHandleTaskWwdg);
+      //printf("UserButtonStatus = 9\r\nresume wwdg feed task\r\n");
+      //vTaskResume(xHandleTaskWwdg);
+    }
+    else if(UserButtonStatus == 10)
+    {
+      printf("UserButtonStatus = 10\r\nJumpToBootloader\r\n");
+      JumpToBootLoader();
+      
     }
     else
     {
@@ -375,6 +382,7 @@ static void AppTaskCreate(void)
         4,                        /*任务优先�?*/
         &xHandleTaskStart);      /*任务句柄*/
   
+#if 0
     xTaskCreate(vTaskIwdg,          /*任务函数*/
               "vTaskIwdg",            /*任务�?*/
               512,                      /*stack大小，单位word，也就是4字节*/
@@ -389,7 +397,7 @@ static void AppTaskCreate(void)
                 5,
                 &xHandleTaskWwdg
                 );
-    
+#endif
     /*
     xTaskCreate(vTaskRtcTimeStamp,
                 "vTaskRtcTimeStamp",
@@ -454,8 +462,8 @@ int main(void)
   BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
 
   timer4DebugInit();
-  iwdgInit();
-  wwdgInit();
+  //iwdgInit();
+  //wwdgInit();
   rtcTimeStampInit();
     
   
