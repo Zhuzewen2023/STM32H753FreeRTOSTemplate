@@ -36,6 +36,7 @@
 #include "delay.h"
 #include "rtc_timeStamp.h"
 #include "bootLoader.h"
+#include "cpu_flash.h"
 #include "stm32h7xx.h"
 #include <string.h>
 #include <stdio.h>
@@ -43,19 +44,19 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-/* 定义在512KB AXI SRAM里面的变量 */
+/* 定义�?512KB AXI SRAM里面的变�? */
 #pragma location = ".RAM_D1"  
 uint32_t AXISRAMBuf[10];
 #pragma location = ".RAM_D1"  
 uint16_t AXISRAMCount;
 
-/* 定义在128KB SRAM1(0x30000000) + 128KB SRAM2(0x30020000) + 32KB SRAM3(0x30040000)里面的变量 */
+/* 定义�?128KB SRAM1(0x30000000) + 128KB SRAM2(0x30020000) + 32KB SRAM3(0x30040000)里面的变�? */
 #pragma location = ".RAM_D2" 
 uint32_t D2SRAMBuf[10];
 #pragma location = ".RAM_D2" 
 uint16_t D2SRAMCount;
 
-/* 定义在64KB SRAM4(0x38000000)里面的变量 */
+/* 定义�?64KB SRAM4(0x38000000)里面的变�? */
 #pragma location = ".RAM_D3"  
 uint32_t D3SRAMBuf[10];
 #pragma location = ".RAM_D3"  
@@ -65,6 +66,14 @@ uint16_t D3SRAMCount;
 uint32_t BKPSRAMBuf[10];
 #pragma location = ".RAM_BKP"
 uint16_t BKPSRAMCount;
+
+/* 
+   1、将一个扇区的空间预留出来做为参数区，这里是将第2个扇区作为参数区，
+      默认情况下不要将第1个扇区做参数区，因为第1个扇区是默认的boot启动地址。
+   2、通过这种定义方式告诉编译器，此空间已经被占用，不让编译器再为这个空间编写程序。
+*/
+#pragma location=0x08000000 + 128*1024
+const uint8_t para_flash_area[128 * 1024];
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -82,7 +91,13 @@ extern uint32_t wwdgDelayNum;
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+typedef struct
+{
+  uint8_t ParamVer;
+  uint16_t ucBackLight;
+  uint32_t Baud485;
+  float ucRadioMode;
+}PARAM_T;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -202,6 +217,7 @@ static void vTaskTaskUserIF(void *pvParameters)
     }
     else if(UserButtonStatus == 7)
     {
+      vTaskResume(xHandleTaskStart);
       //printf("UserButtonStatus = 7\r\nresume iwdg feed task\r\n");
       //vTaskResume(xHandleTaskIwdg);
     }
@@ -299,9 +315,62 @@ static void vTaskMsgPro(void *pvParameters)
 static void vTaskStart(void *pvParameters)
 {
   //uartDmaTest();
+  uint8_t ucTest, *ptr8;
+  uint16_t uiTest, *ptr16;
+  uint32_t ulTest, *ptr32;
+  PARAM_T tPara, *paraPtr;
+  
+  tPara.Baud485 = 0x5555AAAA;
+  tPara.ParamVer = 0x99;
+  tPara.ucBackLight = 0x7788;
+  tPara.ucRadioMode = 99.99f;
+  
   while(1)
   {
-    
+    if(UserButtonStatus == 6)
+    {
+      eraseCpuFlash((uint32_t)para_flash_area);
+      
+      ucTest = 0xAA;
+      uiTest = 0x55AA;
+      ulTest = 0x11223344;
+      
+      writeCpuFlash((uint32_t)para_flash_area, (uint8_t *)&ucTest, sizeof(ucTest));
+      writeCpuFlash((uint32_t)para_flash_area + 32, (uint8_t *)&uiTest, sizeof(uiTest));
+      writeCpuFlash((uint32_t)para_flash_area + 32 * 2, (uint8_t *)&ulTest, sizeof(ulTest));
+
+      /* 读出数据并打印 */
+      ptr8  = (uint8_t  *)(para_flash_area + 32*0);
+      ptr16 = (uint16_t *)(para_flash_area + 32*1);
+      ptr32 = (uint32_t *)(para_flash_area + 32*2);
+
+      printf("userButtonStatus = 6\r\n");
+      printf("write data: ucTest = %x, uiTest = %x, ulTest = %x\r\n", ucTest, uiTest, ulTest);
+      printf("read data: ptr8 = %x, ptr16 = %x, ptr32 = %x\r\n", *ptr8, *ptr16, *ptr32);
+      vTaskSuspend(xHandleTaskStart);
+    }
+    else if(UserButtonStatus == 7)
+    {
+      printf("userButtonStatus = 7\r\n");
+      /* 擦除扇区 */
+      eraseCpuFlash((uint32_t)para_flash_area);
+      writeCpuFlash((uint32_t)para_flash_area, (uint8_t *)&tPara, sizeof(tPara));
+      
+      paraPtr = (PARAM_T *)((uint32_t)para_flash_area);
+      
+      printf("write data: Baud485=%x, ParamVer=%x, ucBackLight=%x, ucRadioMode=%f\r\n", 
+              tPara.Baud485,
+              tPara.ParamVer,
+              tPara.ucBackLight,
+              tPara.ucRadioMode);
+				
+      printf("read data: Baud485=%x, ParamVer=%x, ucBackLight=%x, ucRadioMode=%f\r\n", 
+              paraPtr->Baud485,
+              paraPtr->ParamVer,
+              paraPtr->ucBackLight,
+              paraPtr->ucRadioMode);
+      vTaskSuspend(xHandleTaskStart);
+    }
     
     vTaskDelay(10);
   }
@@ -455,7 +524,16 @@ int main(void)
   MX_UART7_Init();
   /* USER CODE BEGIN 2 */
   //__set_PRIMASK(1);
+  COM_InitTypeDef ComInitStruct;
+  ComInitStruct.BaudRate = 115200;
+  ComInitStruct.HwFlowCtl = COM_HWCONTROL_NONE;
+  ComInitStruct.Parity = COM_PARITY_NONE;
+  ComInitStruct.StopBits = COM_STOPBITS_1;
+  ComInitStruct.WordLength = COM_WORDLENGTH_8B;
   
+  extern UART_HandleTypeDef hcom_uart[COMn];
+  BSP_COM_Init(COM1, &ComInitStruct);
+  HAL_UART_Transmit(hcom_uart, "stlink uart test\r\n", strlen("stlink uart test\r\n"), 0xff);
   BSP_LED_Init(LED1);
   BSP_LED_Init(LED2);
   BSP_LED_Init(LED3);

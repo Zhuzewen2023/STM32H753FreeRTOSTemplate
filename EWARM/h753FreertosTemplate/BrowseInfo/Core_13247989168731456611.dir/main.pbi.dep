@@ -80,6 +80,7 @@ D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\h753FreertosTemplate\B
   D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Drivers\BSP\Common_Drv\delay.h \
   D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Drivers\BSP\Common_Drv\rtc_timeStamp.h \
   D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\App\bootLoader.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Drivers\BSP\Common_Drv\cpu_flash.h \
   D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\string.h \
   D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\DLib_Product_string.h \
   D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\stdio.h
