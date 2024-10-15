@@ -8,7 +8,7 @@
 #define timerInterruptFrequency         20000
 
 /*中断优先级*/
-#define timerHighestPriority            1
+#define timerHighestPriority            0
 
 /*被系统调用*/
 volatile uint32_t ulHighFrequencyTimerTicks = 0UL;

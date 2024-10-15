@@ -38,6 +38,7 @@
 #include "rtc_timeStamp.h"
 #include "bootLoader.h"
 #include "cpu_flash.h"
+#include "queue.h"
 #include "stm32h7xx.h"
 #include "event_groups.h"
 #include <string.h>
@@ -126,6 +127,18 @@ static TaskHandle_t xHandleTaskWwdg = NULL;
 
 EventGroupHandle_t xHandleEventGroup;
 
+QueueHandle_t xQueue1 = NULL;
+QueueHandle_t xQueue2 = NULL;
+
+typedef struct Msg
+{
+  uint8_t ucMessageID;
+  uint16_t usData[2];
+  uint32_t ulData[2];
+}MSG_T;
+
+MSG_T   g_tMsg;
+
 uint32_t UserButtonStatus = 0;  /* set to 1 after User Button interrupt  */
 
 TimerHandle_t xTimers[2];
@@ -153,6 +166,26 @@ static void vTimerCallback(xTimerHandle pxTimer)
 
 static void AppObjCreate(void)
 {
+  /*创建10个uint8_t型的消息队列*/
+  xQueue1 = xQueueCreate(10, sizeof(uint8_t));
+  if(xQueue1 == NULL)
+  {
+    printf("create xQueue1 failed\r\n");
+  }
+  else
+  {
+    printf("create xQueue1 success\r\n");
+  }
+  /*创建10个存储指针变量的消息队列*/
+  xQueue2 = xQueueCreate(10, sizeof(struct Msg *));
+  if(xQueue2 == NULL)
+  {
+    printf("create xQueue2 failed\r\n");
+  }
+  else
+  {
+    printf("create xQueue2 success\r\n");
+  }
   /*创建软件定时器*/
   uint8_t i;
   const TickType_t xTimerPer[2] = {1000, 1000};
@@ -202,6 +235,15 @@ static void vTaskTaskUserIF(void *pvParameters)
   
   uint8_t pcWriteBuffer[500];
   EventBits_t uxBits;
+  
+  uint8_t ucCount = 0;
+  
+  MSG_T *ptMsg;
+  
+  ptMsg = &g_tMsg;
+  ptMsg->ucMessageID = 0;
+  ptMsg->ulData[0] = 0;
+  ptMsg->usData[0] = 0;
   //uint8_t buff[2048];
   
   while(1)
@@ -226,6 +268,7 @@ static void vTaskTaskUserIF(void *pvParameters)
       AXISRAMBuf[5] = AXISRAMCount++;
       AXISRAMBuf[9] = AXISRAMCount++;
       printf("UserButtonStatus = 1, AXISRAMBuf[0] = %d, AXISRAMBuf[5] = %d, AXISRAMBuf[9] = %d\r\n",AXISRAMBuf[0], AXISRAMBuf[5], AXISRAMBuf[9]);
+      
       
     }
     else if(UserButtonStatus == 2)
@@ -340,6 +383,18 @@ static void vTaskTaskUserIF(void *pvParameters)
     }
     else if(UserButtonStatus == 9)
     {
+      ucCount++;
+      if(xQueueSend(xQueue1,
+                    (void *) &ucCount,
+                    (TickType_t)10) != pdPASS)
+      {
+        /*发送失败*/
+        printf("UserButtonStatus = 9, xQueue1Send ucCount failed\r\n");
+      }
+      else
+      {
+        printf("UserButtonStatus = 9, xQueue1Send ucCount success\r\n");
+      }
       printf("UserButtonStatus = 9, set vTaskLED priority to 5\r\n");
       vTaskPrioritySet(xHandleTaskLED, 5);
       printf("vTaskLED priority is now setted to %d\r\n", (int)uxTaskPriorityGet(xHandleTaskLED));
@@ -351,6 +406,20 @@ static void vTaskTaskUserIF(void *pvParameters)
     }
     else if(UserButtonStatus == 10)
     {
+      ptMsg->ucMessageID++;
+      ptMsg->ulData[0]++;
+      ptMsg->usData[0]++;
+      
+      if(xQueueSend(xQueue2, 
+                    (void *)&ptMsg,
+                    (TickType_t)10) != pdPASS)
+      {
+        printf("UserButtonStatus = 10, xQueue2Send MSG_T failed\r\n");
+      }
+      else
+      {
+        printf("UserButtonStatus = 10, xQueue2Send MSG_T success\r\n");
+      }
       printf("UserButtonStatus = 10, set vTaskLED priority to 1\r\n");
       vTaskPrioritySet(xHandleTaskLED, 1);
       printf("vTaskLED priority is now setted to %d\r\n", (int)uxTaskPriorityGet(xHandleTaskLED));
@@ -385,6 +454,10 @@ static void vTaskTaskUserIF(void *pvParameters)
 */
 static void vTaskLED(void *pvParameters)
 {
+  MSG_T *ptMsg;
+  BaseType_t xResult;
+  const TickType_t xMaxBlockTime = pdMS_TO_TICKS(200);
+  
   TickType_t xLastWakeTime;
   const TickType_t xFrequency = 1000;
   
@@ -393,7 +466,23 @@ static void vTaskLED(void *pvParameters)
   
   while(1)
   {
-    vTaskSuspendAll(); /*开启调度锁*/
+    //vTaskSuspendAll(); /*开启调度锁*/
+    
+    xResult = xQueueReceive(xQueue2,
+                            (void *)&ptMsg,
+                            (TickType_t)xMaxBlockTime);
+    
+    if(xResult == pdPASS)
+    {
+      printf("msg queue receive success: ptMsg->ucMessageID = %d\r\n", ptMsg->ucMessageID);
+      printf("msg queue receive success: ptMsg->usData[0] = %d\r\n", ptMsg->usData[0]);
+      printf("msg queue receive success: ptMsg->ulData[0] = %d\r\n", ptMsg->ulData[0]);
+    }
+    else
+    {
+      printf("msg queue receive failed\r\n");
+    }
+    
     printf("now suspend all, vTaskLED working\r\n");
     printf("xLastWakeTime = %d\r\n", xLastWakeTime);
     BSP_LED_Toggle(LED1);
@@ -401,11 +490,13 @@ static void vTaskLED(void *pvParameters)
     //BSP_LED_Toggle(LED3);
     RTC_CalendarShow();
     
+#if 0
     if(xTaskResumeAll() == pdTRUE) /*关闭调度锁，如果需要任务切换，此函数返回pdTRUE*/
     {
       taskYIELD();
     }
     printf("after vTaskResumeAll\r\n");
+#endif
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
     
     
@@ -423,6 +514,10 @@ static void vTaskLED(void *pvParameters)
 */
 static void vTaskMsgPro(void *pvParameters)
 {
+  BaseType_t xResult;
+  const portTickType xMaxBlockTime = pdMS_TO_TICKS(300); /*设置最大等待时间为300ms*/
+  uint8_t ucQueueMsgValue;
+  
   static uint8_t frameBuffer[101] = {0};
   memset((char *)(&frameBuffer[1]), '2', 100);
   HAL_UART_Transmit_DMA(&huart6, "uart6 dma transmit success\r\n", strlen("uart6 dma transmit success\r\n"));
@@ -432,6 +527,20 @@ static void vTaskMsgPro(void *pvParameters)
   //SCB_InvalidateDCache_by_Addr ((uint32_t *)rcvBuf, 5);
   while(1)
   {
+    xResult = xQueueReceive(xQueue1,
+                            (void *)&ucQueueMsgValue,
+                            (TickType_t)xMaxBlockTime);
+    
+    if(xResult == pdPASS)
+    {
+      printf("receive queue1 msg success\r\n");
+      printf("ucQueueMsgValue = %d\r\n", ucQueueMsgValue);
+    }
+    else
+    {
+      printf("receive queue1 msg failed\r\n");
+    }
+    
     //HAL_UART_Transmit_DMA(&huart7, "uart7 dma transmit success\r\n", strlen("uart6 dma transmit success\r\n"));
     uart7ModeChange(GPIOMODE);
     HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, GPIO_PIN_RESET);
