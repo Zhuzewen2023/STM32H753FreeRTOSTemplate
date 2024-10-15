@@ -127,12 +127,56 @@ static TaskHandle_t xHandleTaskWwdg = NULL;
 EventGroupHandle_t xHandleEventGroup;
 
 uint32_t UserButtonStatus = 0;  /* set to 1 after User Button interrupt  */
+
+TimerHandle_t xTimers[2];
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+static void vTimerCallback(xTimerHandle pxTimer)
+{
+    uint32_t ulTimerID;
+    
+    ulTimerID = (uint32_t)pvTimerGetTimerID(pxTimer);
+    
+    if(ulTimerID == 0)
+    {
+      printf("software timer 0\r\n");
+    }
+    
+    if(ulTimerID == 1)
+    {
+      printf("software timer 1\r\n");
+    }
+}
+
 static void AppObjCreate(void)
 {
+  /*创建软件定时器*/
+  uint8_t i;
+  const TickType_t xTimerPer[2] = {1000, 1000};
+  
+  for(i = 0; i < 2; i++)
+  {
+    xTimers[i] = xTimerCreate("Timer",                  /*定时器名字*/ 
+                              xTimerPer[i],             /*定时器周期，单位时钟节拍*/ 
+                              pdTRUE,                   /*周期性*/
+                              (void *)i,                /*定时器ID*/
+                              vTimerCallback);          /*定时器回调函数*/
+    
+    if(xTimers[i] == NULL)
+    {
+      printf("create software timer failed , ID = %d\r\n", i);
+    }
+    else
+    {
+      if(xTimerStart(xTimers[i], 100) != pdPASS)
+      {
+        printf("timer start failed, ID = %d\r\n", i);
+      }
+    }
+  }
   /*创建事件标志组*/
   xHandleEventGroup = xEventGroupCreate();
   
@@ -618,6 +662,8 @@ static void AppTaskCreate(void)
                 );
     */
 }
+
+
 /* USER CODE END 0 */
 
 /**
