@@ -1141,6 +1141,9 @@
           <name>$PROJ_DIR$\..\Core\Src\memorymap.c</name>
         </file>
         <file>
+          <name>$PROJ_DIR$/../Core/Src/tim.c</name>
+        </file>
+        <file>
           <name>$PROJ_DIR$\..\Core\Src\usart.c</name>
         </file>
         <file>

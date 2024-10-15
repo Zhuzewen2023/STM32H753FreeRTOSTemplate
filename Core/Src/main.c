@@ -21,6 +21,7 @@
 #include "cmsis_os.h"
 #include "dma.h"
 #include "memorymap.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -38,25 +39,26 @@
 #include "bootLoader.h"
 #include "cpu_flash.h"
 #include "stm32h7xx.h"
+#include "event_groups.h"
 #include <string.h>
 #include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-/* 定义�?512KB AXI SRAM里面的变�? */
+/* 定义�?512KB AXI SRAM里面的变�? */
 #pragma location = ".RAM_D1"  
 uint32_t AXISRAMBuf[10];
 #pragma location = ".RAM_D1"  
 uint16_t AXISRAMCount;
 
-/* 定义�?128KB SRAM1(0x30000000) + 128KB SRAM2(0x30020000) + 32KB SRAM3(0x30040000)里面的变�? */
+/* 定义�?128KB SRAM1(0x30000000) + 128KB SRAM2(0x30020000) + 32KB SRAM3(0x30040000)里面的变�? */
 #pragma location = ".RAM_D2" 
 uint32_t D2SRAMBuf[10];
 #pragma location = ".RAM_D2" 
 uint16_t D2SRAMCount;
 
-/* 定义�?64KB SRAM4(0x38000000)里面的变�? */
+/* 定义�?64KB SRAM4(0x38000000)里面的变�? */
 #pragma location = ".RAM_D3"  
 uint32_t D3SRAMBuf[10];
 #pragma location = ".RAM_D3"  
@@ -68,9 +70,9 @@ uint32_t BKPSRAMBuf[10];
 uint16_t BKPSRAMCount;
 
 /* 
-   1、将一个扇区的空间预留出来做为参数区，这里是将第2个扇区作为参数区，
-      默认情况下不要将第1个扇区做参数区，因为第1个扇区是默认的boot启动地址。
-   2、通过这种定义方式告诉编译器，此空间已经被占用，不让编译器再为这个空间编写程序。
+   1、将�?个扇区的空间预留出来做为参数区，这里是将�?2个扇区作为参数区�?
+      默认情况下不要将�?1个扇区做参数区，因为�?1个扇区是默认的boot启动地址�?
+   2、�?�过这种定义方式告诉编译器，此空间已经被占用，不让编译器再为这个空间编写程序�?
 */
 #pragma location=0x08000000 + 128*1024
 const uint8_t para_flash_area[128 * 1024];
@@ -122,24 +124,41 @@ static TaskHandle_t xHandleTaskIwdg = NULL;
 static TaskHandle_t xHandleTaskWwdg = NULL;
 //static TaskHandle_t xHandleTaskRtcTimeStamp = NULL;
 
+EventGroupHandle_t xHandleEventGroup;
+
 uint32_t UserButtonStatus = 0;  /* set to 1 after User Button interrupt  */
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static void AppObjCreate(void)
+{
+  /*创建事件标志组*/
+  xHandleEventGroup = xEventGroupCreate();
+  
+  if(xHandleEventGroup == NULL)
+  {
+    /*事件标志组没有创建成功*/
+    printf("xEventGroupCreate failed\r\n");
+  }
+}
+
+
 /*
 *********************************************************************************************************
-* �? �? �?: vTaskTaskUserIF
-* 功能说明: 接口消息处理，这里用�? LED 闪烁
-* �? �?: pvParameters 是在创建该任务时传�?�的形参
-* �? �? �?: �?
-* �? �? �?: 1 (数�?�越小优先级越低，这个跟 uCOS 相反)
+* �? �? �?: vTaskTaskUserIF
+* 功能说明: 接口消息处理，这里用�? LED 闪烁
+* �? �?: pvParameters 是在创建该任务时传�?�的形参
+* �? �? �?: �?
+* �? �? �?: 1 (数�?�越小优先级越低，这个跟 uCOS 相反)
 *********************************************************************************************************
 */
 static void vTaskTaskUserIF(void *pvParameters)
 {
   
   uint8_t pcWriteBuffer[500];
+  EventBits_t uxBits;
+  //uint8_t buff[2048];
   
   while(1)
   {
@@ -198,42 +217,106 @@ static void vTaskTaskUserIF(void *pvParameters)
     }
     else if(UserButtonStatus == 4)
     {
+      taskENTER_CRITICAL();
       printf("UserButtonStatus = 4\r\nsuspend led task\r\n");
       vTaskSuspend(xHandleTaskLED);
       BKPSRAMBuf[0] = BKPSRAMCount++;
       BKPSRAMBuf[5] = BKPSRAMCount++;
       BKPSRAMBuf[9] = BKPSRAMCount++;
       printf("UserButtonStatus = 3, BKPSRAMBuf[0] = %d, BKPSRAMBuf[5] = %d, BKPSRAMBuf[9] = %d\r\n",BKPSRAMBuf[0], BKPSRAMBuf[5], BKPSRAMBuf[9]);
+      taskEXIT_CRITICAL();
+      
     }
     else if(UserButtonStatus == 5)
     {
       printf("UserButtonStatus = 5\r\nresume led task\r\n");
-      vTaskResume(xHandleTaskLED);
+      HAL_TIM_Base_Start_IT(&htim17);
+      //vTaskResume(xHandleTaskLED);
     }
     else if(UserButtonStatus == 6)
     {
+      /*
+      uxBits = xEventGroupSetBits(xHandleEventGroup, SET_BIT_0);
+      if((uxBits & SET_BIT_0) != 0)
+      {
+        printf("UserButtonStatus = 6, event group bit 0 was setted\r\n");
+      }
+      else
+      {
+        printf("UserButtonStatus = 6, event group bit 0 was not setted\r\n");
+      }
+      */
       //printf("UserButtonStatus = 6\r\nsuspend iwdg feed task\r\n");
       //vTaskSuspend(xHandleTaskIwdg);
     }
     else if(UserButtonStatus == 7)
     {
+      /*
+      uxBits = xEventGroupSetBits(xHandleEventGroup, SET_BIT_1);
+      if((uxBits & SET_BIT_1) != 0)
+      {
+        printf("UserButtonStatus = 7, event group bit 1 was setted\r\n");
+      }
+      else
+      {
+        printf("UserButtonStatus = 7, event group bit 1 was not setted\r\n");
+      }
+      */
       vTaskResume(xHandleTaskStart);
       //printf("UserButtonStatus = 7\r\nresume iwdg feed task\r\n");
       //vTaskResume(xHandleTaskIwdg);
     }
     else if(UserButtonStatus == 8)
     {
+      vTaskSuspendAll(); /*开启调度锁*/
+      uxBits = xEventGroupSetBits(xHandleEventGroup, SET_BIT_0);
+      if((uxBits & SET_BIT_0) != 0)
+      {
+        printf("UserButtonStatus = 8, event group bit 0 was setted\r\n");
+      }
+      else
+      {
+        printf("UserButtonStatus = 8, event group bit 0 was not setted\r\n");
+      }
+      uxBits = xEventGroupSetBits(xHandleEventGroup, SET_BIT_1);
+      if((uxBits & SET_BIT_1) != 0)
+      {
+        printf("UserButtonStatus = 8, event group bit 1 was setted\r\n");
+      }
+      else
+      {
+        printf("UserButtonStatus = 8, event group bit 1 was not setted\r\n");
+      }
+      if(xTaskResumeAll() == pdTRUE) /*关闭调度锁，如果需要任务切换，此函数返回pdTRUE*/
+      {
+        taskYIELD();
+      }
       //printf("UserButtonStatus = 8\r\nsuspend wwdg feed task\r\n");
       //vTaskSuspend(xHandleTaskWwdg);
     }
     else if(UserButtonStatus == 9)
     {
+      printf("UserButtonStatus = 9, set vTaskLED priority to 5\r\n");
+      vTaskPrioritySet(xHandleTaskLED, 5);
+      printf("vTaskLED priority is now setted to %d\r\n", (int)uxTaskPriorityGet(xHandleTaskLED));
+      
+      printf("UserButtonStatus = 9, start tim15 for sending event\r\n");
+      HAL_TIM_Base_Start_IT(&htim15);
       //printf("UserButtonStatus = 9\r\nresume wwdg feed task\r\n");
       //vTaskResume(xHandleTaskWwdg);
     }
     else if(UserButtonStatus == 10)
     {
-      printf("UserButtonStatus = 10\r\nJumpToBootloader\r\n");
+      printf("UserButtonStatus = 10, set vTaskLED priority to 1\r\n");
+      vTaskPrioritySet(xHandleTaskLED, 1);
+      printf("vTaskLED priority is now setted to %d\r\n", (int)uxTaskPriorityGet(xHandleTaskLED));
+      
+      printf("UserButtonStatus = 10, start tim16 for sending event\r\n");
+      HAL_TIM_Base_Start_IT(&htim16);
+    }
+    else if(UserButtonStatus == 11)
+    {
+      printf("UserButtonStatus = 11\r\nJumpToBootloader\r\n");
       JumpToBootLoader();
       
     }
@@ -249,33 +332,49 @@ static void vTaskTaskUserIF(void *pvParameters)
 
 /*
 *********************************************************************************************************
-* �? �? �?: vTaskLED
+* �? �? �?: vTaskLED
 * 功能说明: LED 闪烁
-* �? �?: pvParameters 是在创建该任务时传�?�的形参
-* �? �? �?: �?
-* �? �? �?: 2
+* �? �?: pvParameters 是在创建该任务时传�?�的形参
+* �? �? �?: �?
+* �? �? �?: 2
 *********************************************************************************************************
 */
 static void vTaskLED(void *pvParameters)
 {
+  TickType_t xLastWakeTime;
+  const TickType_t xFrequency = 1000;
+  
+  xLastWakeTime = xTaskGetTickCount();
+  
+  
   while(1)
   {
+    vTaskSuspendAll(); /*开启调度锁*/
+    printf("now suspend all, vTaskLED working\r\n");
+    printf("xLastWakeTime = %d\r\n", xLastWakeTime);
     BSP_LED_Toggle(LED1);
-    BSP_LED_Toggle(LED2);
-    BSP_LED_Toggle(LED3);
+    //BSP_LED_Toggle(LED2);
+    //BSP_LED_Toggle(LED3);
     RTC_CalendarShow();
-    vTaskDelay(1000);
+    
+    if(xTaskResumeAll() == pdTRUE) /*关闭调度锁，如果需要任务切换，此函数返回pdTRUE*/
+    {
+      taskYIELD();
+    }
+    printf("after vTaskResumeAll\r\n");
+    vTaskDelayUntil(&xLastWakeTime, xFrequency);
+    
     
   }
 }
 
 /*
 *********************************************************************************************************
-* �? �? �?: vTaskMsgPro
+* �? �? �?: vTaskMsgPro
 * 功能说明: 信息处理
-* �? �?: pvParameters 是在创建该任务时传�?�的形参
-* �? �? �?: �?
-* �? �? �?: 3
+* �? �?: pvParameters 是在创建该任务时传�?�的形参
+* �? �? �?: �?
+* �? �? �?: 3
 *********************************************************************************************************
 */
 static void vTaskMsgPro(void *pvParameters)
@@ -305,11 +404,11 @@ static void vTaskMsgPro(void *pvParameters)
 
 /*
 *********************************************************************************************************
-* �? �? �?: vTaskStart
-* 功能说明: 启动任务，也就是�?高优先级任务，这里用�? LED 闪烁
-* �? �?: pvParameters 是在创建该任务时传�?�的形参
-* �? �? �?: �?
-* �? �? �?: 4
+* �? �? �?: vTaskStart
+* 功能说明: 启动任务，也就是�?高优先级任务，这里用�? LED 闪烁
+* �? �?: pvParameters 是在创建该任务时传�?�的形参
+* �? �? �?: �?
+* �? �? �?: 4
 *********************************************************************************************************
 */
 static void vTaskStart(void *pvParameters)
@@ -329,6 +428,7 @@ static void vTaskStart(void *pvParameters)
   {
     if(UserButtonStatus == 6)
     {
+      taskDISABLE_INTERRUPTS();
       eraseCpuFlash((uint32_t)para_flash_area);
       
       ucTest = 0xAA;
@@ -339,11 +439,12 @@ static void vTaskStart(void *pvParameters)
       writeCpuFlash((uint32_t)para_flash_area + 32, (uint8_t *)&uiTest, sizeof(uiTest));
       writeCpuFlash((uint32_t)para_flash_area + 32 * 2, (uint8_t *)&ulTest, sizeof(ulTest));
 
-      /* 读出数据并打印 */
+      /* 读出数据并打�? */
       ptr8  = (uint8_t  *)(para_flash_area + 32*0);
       ptr16 = (uint16_t *)(para_flash_area + 32*1);
       ptr32 = (uint32_t *)(para_flash_area + 32*2);
 
+      taskENABLE_INTERRUPTS();
       printf("userButtonStatus = 6\r\n");
       printf("write data: ucTest = %x, uiTest = %x, ulTest = %x\r\n", ucTest, uiTest, ulTest);
       printf("read data: ptr8 = %x, ptr16 = %x, ptr32 = %x\r\n", *ptr8, *ptr16, *ptr32);
@@ -378,9 +479,26 @@ static void vTaskStart(void *pvParameters)
 
 static void vTaskIwdg(void *pvParameters)
 {
+  /*利用vTaskDelay实现vTaskDelayUntil*/
+  TickType_t xDelay, xNextTime;
+  const TickType_t xFrequency =  1000;
+  
+  /*获取第一次唤醒时间*/
+  xNextTime = xTaskGetTickCount() + xFrequency;
+  
   while(1)
   {
-    vTaskDelay(450);
+    printf("use vTaskDelay to achieve vTaskDelayUntil(1000)\r\n");
+    xDelay = xNextTime - xTaskGetTickCount();
+    //计算下次唤醒时间
+    xNextTime += xFrequency;
+    
+    if(xDelay <= xFrequency)
+    {
+      vTaskDelay(xDelay);
+    }
+  }
+#if 0
     if(HAL_IWDG_Refresh(&IwdgHandle) != HAL_OK)
     {
       printf("iwdg feed error\r\n");
@@ -389,14 +507,36 @@ static void vTaskIwdg(void *pvParameters)
     {
       //printf("iwdg feed success\r\n");
     }
+#endif
     
-  }
+  
 }
 
 static void vTaskWwdg(void *pvParameters)
 {
+  EventBits_t uxBits;
+  const TickType_t xTicksToWait = 100  / portTICK_PERIOD_MS;  /*100ms*/
   while(1)
   {
+    uxBits = xEventGroupWaitBits(xHandleEventGroup, 
+                                 SET_BIT_0 | SET_BIT_1, /*等待bit0和bit1被设置*/
+                                 pdTRUE,                /*退出前bit0和bit1都被清除*/
+                                 pdTRUE,                /*等待bit0和bit1都被设置*/
+                                 xTicksToWait);         /*等待延迟时间*/
+    
+    if((uxBits & (SET_BIT_0 | SET_BIT_1)) == (SET_BIT_0 | SET_BIT_1))
+    {
+      printf("receive event group bits: bit 0 and bit 1 was setted\r\n");
+      BSP_LED_Toggle(LED2);
+    }
+    else
+    {
+      //printf("run overtime or bit not setted\r\n");
+      //BSP_LED_Toggle(LED3);
+    }
+                                 
+    vTaskDelay(1);
+#if 0
     vTaskDelay(wwdgDelayNum);
     if(HAL_WWDG_Refresh(&WwdgHandle) != HAL_OK)
     {
@@ -406,6 +546,7 @@ static void vTaskWwdg(void *pvParameters)
     {
       //printf("Wwdg feed success\r\n");
     }
+#endif
     
   }
 }
@@ -424,39 +565,39 @@ static void vTaskRtcTimeStamp(void *pvParameters)
 static void AppTaskCreate(void)
 {
   xTaskCreate(vTaskTaskUserIF,          /*任务函数*/
-              "vTaskUserIF",            /*任务�?*/
+              "vTaskUserIF",            /*任务�?*/
               512,                      /*stack大小，单位word，也就是4字节*/
               NULL,                     /*任务参数*/
-              5,                        /*任务优先�?*/
+              5,                        /*任务优先�?*/
               &xHandleTaskUserIF);      /*任务句柄*/
   
   xTaskCreate(vTaskLED,          /*任务函数*/
-            "vTaskLED",              /*任务�?*/
+            "vTaskLED",              /*任务�?*/
             512,                       /*stack大小，单位word，也就是4字节*/
             NULL,                      /*任务参数*/
-            2,                         /*任务优先�?*/
+            2,                         /*任务优先�?*/
             &xHandleTaskLED);       /*任务句柄*/
     
   xTaskCreate(vTaskMsgPro,          /*任务函数*/
-          "vTaskMsgPro",            /*任务�?*/
+          "vTaskMsgPro",            /*任务�?*/
           512,                      /*stack大小，单位word，也就是4字节*/
           NULL,                     /*任务参数*/
-          3,                        /*任务优先�?*/
+          3,                        /*任务优先�?*/
           &xHandleTaskMsgPro);      /*任务句柄*/
       
   xTaskCreate(vTaskStart,          /*任务函数*/
-        "vTaskStart",            /*任务�?*/
+        "vTaskStart",            /*任务�?*/
         512,                      /*stack大小，单位word，也就是4字节*/
         NULL,                     /*任务参数*/
-        4,                        /*任务优先�?*/
+        4,                        /*任务优先�?*/
         &xHandleTaskStart);      /*任务句柄*/
   
-#if 0
+#if 1
     xTaskCreate(vTaskIwdg,          /*任务函数*/
-              "vTaskIwdg",            /*任务�?*/
+              "vTaskIwdg",            /*任务�?*/
               512,                      /*stack大小，单位word，也就是4字节*/
               NULL,                     /*任务参数*/
-              5,                        /*任务优先�?*/
+              5,                        /*任务优先�?*/
               &xHandleTaskIwdg);      /*任务句柄*/
     
     xTaskCreate(vTaskWwdg,
@@ -522,6 +663,9 @@ int main(void)
   MX_DMA_Init();
   MX_USART6_UART_Init();
   MX_UART7_Init();
+  MX_TIM17_Init();
+  MX_TIM16_Init();
+  MX_TIM15_Init();
   /* USER CODE BEGIN 2 */
   //__set_PRIMASK(1);
   COM_InitTypeDef ComInitStruct;
@@ -548,7 +692,9 @@ int main(void)
   /*创建任务*/
   AppTaskCreate();
   
-  /*启动调度，开始执行任�?*/
+  AppObjCreate();
+  
+  /*启动调度，开始执行任�?*/
   vTaskStartScheduler();
   /* USER CODE END 2 */
 
@@ -728,12 +874,65 @@ void MPU_Config(void)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
-
   /* USER CODE END Callback 0 */
   if (htim->Instance == TIM6) {
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
+  BaseType_t xYieldRequired;
+  UBaseType_t uxSavedInterruptStatus;
+  if(htim->Instance == TIM17)
+  {
+    HAL_TIM_Base_Stop_IT(&htim17);
+    uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR(); //进入临界区
+    {
+      printf("HAL_TIM_PeriodElapsedCallback: enter critical area\r\n");
+        printf("uxSavedInterruptStatus = %d\r\n", (int)uxSavedInterruptStatus);
+    }
+    portCLEAR_INTERRUPT_MASK_FROM_ISR(uxSavedInterruptStatus); //退出临界区
+    printf("HAL_TIM_PeriodElapsedCallback: exit critical area\r\n");
+    
+    xYieldRequired = xTaskResumeFromISR(xHandleTaskLED);
+    
+    if(xYieldRequired == pdTRUE)
+    {
+      printf("ISR Yield required\r\n");
+      portYIELD_FROM_ISR(xYieldRequired);
+    }
+    
+  }
+  
+  if(htim->Instance == TIM15)
+  {
+    BaseType_t xResult;
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    
+    HAL_TIM_Base_Stop_IT(&htim15);
+    
+    xResult = xEventGroupSetBitsFromISR(xHandleEventGroup, SET_BIT_0, &xHigherPriorityTaskWoken);
+    
+    if(xResult != pdFAIL)
+    {
+      /*消息被成功发出*/
+      portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    }
+    
+  }
+  
+  if(htim->Instance == TIM16)
+  {
+    BaseType_t xResult;
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    HAL_TIM_Base_Stop_IT(&htim16);
+    
+    xResult = xEventGroupSetBitsFromISR(xHandleEventGroup, SET_BIT_1, &xHigherPriorityTaskWoken);
+    
+    if(xResult != pdFAIL)
+    {
+      /*消息被成功发出*/
+      portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    }
+  }
 
   /* USER CODE END Callback 1 */
 }

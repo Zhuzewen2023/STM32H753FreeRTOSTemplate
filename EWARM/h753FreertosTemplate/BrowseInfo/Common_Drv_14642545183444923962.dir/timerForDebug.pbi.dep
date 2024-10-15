@@ -53,4 +53,15 @@ D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\h753FreertosTemplate\B
   D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_usart.h \
   D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_usart_ex.h \
   D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_wwdg.h \
-  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Core\Inc\main.h
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Core\Inc\main.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\FreeRTOS.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Core\Inc\FreeRTOSConfig.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\projdefs.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\portable.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\deprecated_definitions.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\portable\IAR\ARM_CM4F\portmacro.h \
+  D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\aarch32\intrinsics.h \
+  D:\IAR\Embedded\ Workbench\ 9.2_2\arm\inc\c\aarch32\iar_intrinsics_common.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\mpu_wrappers.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\task.h \
+  D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\..\Middlewares\Third_Party\FreeRTOS\Source\include\list.h

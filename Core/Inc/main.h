@@ -32,11 +32,25 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+  
+#define USE_FreeRTOS            1
+  
+#if USE_FreeRTOS == 1
+  #include "FreeRTOS.h"
+  #include "task.h"
+  #define DISABLE_INT()   taskENTER_CRITICAL()
+  #define ENABLE_INT()    taskEXIT_CRITICAL()
+#else
+  #define ENABLE_INT()    __set_PRIMASK(0)        /*使能全局中断*/
+  #define DISABLE_INT()   __set_PRIMASK(1)        /*禁止全局中断*/
+#endif
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-
+#define SET_BIT_0       (1 << 0)
+#define SET_BIT_1       (1 << 1)
+#define SET_BIT_2       (1 << 2)
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/

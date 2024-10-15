@@ -41,6 +41,7 @@ void timer4DebugInit(void)
         
 }
 
+#if 0
 void HAL_TIM_Base_MspInit(TIM_HandleTypeDef *htim)
 {
   /*##-1- Enable peripheral clock #################################*/
@@ -54,6 +55,7 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef *htim)
   /* Enable the TIMx global Interrupt */
   HAL_NVIC_EnableIRQ(TIM3_IRQn);
 }
+#endif
 
 void TIM3_IRQHandler(void)
 {

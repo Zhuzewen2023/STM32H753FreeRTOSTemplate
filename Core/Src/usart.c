@@ -350,7 +350,7 @@ void uart7ModeChange(uint8_t mode)
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 }
 
-/*********************************串口重定�?***********************************************/
+/*********************************串口重定�?***********************************************/
 #include <LowLevelIOInterface.h>
 int iar9x_putc(int x);
 #pragma module_name = "?__write"
