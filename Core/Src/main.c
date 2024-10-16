@@ -477,10 +477,27 @@ static void vTaskLED(void *pvParameters)
       printf("msg queue receive success: ptMsg->ucMessageID = %d\r\n", ptMsg->ucMessageID);
       printf("msg queue receive success: ptMsg->usData[0] = %d\r\n", ptMsg->usData[0]);
       printf("msg queue receive success: ptMsg->ulData[0] = %d\r\n", ptMsg->ulData[0]);
+      
     }
     else
     {
-      printf("msg queue receive failed\r\n");
+      printf("receive queue2 msg failed\r\n");
+    }
+    
+    xResult = xQueueReceive(xQueue2,
+                            (void *)&ptMsg,
+                            (TickType_t)xMaxBlockTime);
+    
+    if(xResult == pdPASS)
+    {
+      printf("======================================================================================\r\n");
+      printf("msg queue receive success: ptMsg->ucMessageID = %d\r\n", ptMsg->ucMessageID);
+      printf("msg queue receive success: ptMsg->usData[1] = %d\r\n", ptMsg->usData[1]);
+      printf("msg queue receive success: ptMsg->ulData[1] = %d\r\n", ptMsg->ulData[1]);
+    }
+    else
+    {
+      printf("receive queue2 msg failed\r\n");
     }
     
     printf("now suspend all, vTaskLED working\r\n");
@@ -517,6 +534,7 @@ static void vTaskMsgPro(void *pvParameters)
   BaseType_t xResult;
   const portTickType xMaxBlockTime = pdMS_TO_TICKS(300); /*设置最大等待时间为300ms*/
   uint8_t ucQueueMsgValue;
+  uint8_t uiQueueMsgValue;
   
   static uint8_t frameBuffer[101] = {0};
   memset((char *)(&frameBuffer[1]), '2', 100);
@@ -535,6 +553,18 @@ static void vTaskMsgPro(void *pvParameters)
     {
       printf("receive queue1 msg success\r\n");
       printf("ucQueueMsgValue = %d\r\n", ucQueueMsgValue);
+    }
+    else
+    {
+      printf("receive queue1 msg failed\r\n");
+    }
+    
+    xResult = xQueueReceive(xQueue1, (void *)&uiQueueMsgValue, (TickType_t)xMaxBlockTime);
+    
+    if(xResult == pdPASS)
+    {
+      printf("receive queue1 msg success\r\n");
+      printf("uiQueueMsgValue = %d\r\n", uiQueueMsgValue);
     }
     else
     {
@@ -1029,6 +1059,8 @@ void MPU_Config(void)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
+  static uint32_t g_uiCount = 0;
+  
   /* USER CODE END Callback 0 */
   if (htim->Instance == TIM6) {
     HAL_IncTick();
@@ -1064,11 +1096,18 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     
     HAL_TIM_Base_Stop_IT(&htim15);
     
+    g_uiCount++;
+    
+    xQueueSendFromISR(xQueue1, (void *)&g_uiCount, &xHigherPriorityTaskWoken);
+    
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    
     xResult = xEventGroupSetBitsFromISR(xHandleEventGroup, SET_BIT_0, &xHigherPriorityTaskWoken);
     
     if(xResult != pdFAIL)
     {
       /*消息被成功发出*/
+      printf("TIM15 ISR: set event group bit 0 succeed\r\n");
       portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
     
@@ -1078,7 +1117,18 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   {
     BaseType_t xResult;
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    
+    MSG_T *ptMsg;
+    
     HAL_TIM_Base_Stop_IT(&htim16);
+    
+    ptMsg->ucMessageID++;
+    ptMsg->ulData[1]++;
+    ptMsg->usData[1]++;
+    
+    xQueueSendFromISR(xQueue2, (void *)&ptMsg, &xHigherPriorityTaskWoken);
+    
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     
     xResult = xEventGroupSetBitsFromISR(xHandleEventGroup, SET_BIT_1, &xHigherPriorityTaskWoken);
     
