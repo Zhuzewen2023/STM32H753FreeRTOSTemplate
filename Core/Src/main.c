@@ -41,6 +41,7 @@
 #include "queue.h"
 #include "stm32h7xx.h"
 #include "event_groups.h"
+#include "semphr.h"
 #include <string.h>
 #include <stdio.h>
 /* USER CODE END Includes */
@@ -115,7 +116,7 @@ static void vTaskStart(void *pvParameters);
 static void AppTaskCreate (void);
 static void vTaskIwdg(void *pvParameters);
 static void vTaskWwdg(void *pvParameters);
-//static void vTaskRtcTimeStamp(void *pvParameters);
+//static void vTaskMsgPro2(void *pvParameters);
 
 static TaskHandle_t xHandleTaskUserIF = NULL;
 static TaskHandle_t xHandleTaskLED = NULL;
@@ -123,12 +124,17 @@ static TaskHandle_t xHandleTaskMsgPro = NULL;
 static TaskHandle_t xHandleTaskStart = NULL;
 static TaskHandle_t xHandleTaskIwdg = NULL;
 static TaskHandle_t xHandleTaskWwdg = NULL;
-//static TaskHandle_t xHandleTaskRtcTimeStamp = NULL;
+//static TaskHandle_t xHandleTaskMsgPro2 = NULL;
 
-EventGroupHandle_t xHandleEventGroup;
+static EventGroupHandle_t xHandleEventGroup;
 
-QueueHandle_t xQueue1 = NULL;
-QueueHandle_t xQueue2 = NULL;
+static QueueHandle_t xQueue1 = NULL;
+static QueueHandle_t xQueue2 = NULL;
+static QueueHandle_t xQueue3 = NULL;
+
+static SemaphoreHandle_t xHandleSemaphoreCounting = NULL;
+static SemaphoreHandle_t xHandleSemaphoreBinary = NULL;
+static SemaphoreHandle_t xHandleSemaphoreMutex = NULL;
 
 typedef struct Msg
 {
@@ -155,17 +161,57 @@ static void vTimerCallback(xTimerHandle pxTimer)
     
     if(ulTimerID == 0)
     {
-      printf("software timer 0\r\n");
+      //printf("software timer 0\r\n");
     }
     
     if(ulTimerID == 1)
     {
-      printf("software timer 1\r\n");
+      //printf("software timer 1\r\n");
     }
 }
 
 static void AppObjCreate(void)
 {
+  /*用于测试动态内存分配的消息队列*/
+  xQueue3 = xQueueCreate(10, sizeof(struct Msg *));
+  if(xQueue3 == NULL)
+  {
+    printf("create xQueue3 failed\r\n");
+  }
+  else
+  {
+    printf("create xQueue3 success\r\n");
+  }
+  
+  /*初始化1个信号量可用资源*/
+  xHandleSemaphoreCounting = xSemaphoreCreateCounting(1,0);
+  
+  /*创建二值信号量*/
+  xHandleSemaphoreBinary = xSemaphoreCreateBinary();
+  
+  /*创建互斥锁*/
+  xHandleSemaphoreMutex = xSemaphoreCreateMutex();
+  
+  if(xHandleSemaphoreCounting == NULL)
+  {
+    printf("create counting semaphore failed\r\n");
+  }
+  
+  if(xHandleSemaphoreBinary == NULL)
+  {
+    printf("create binary semaphore failed\r\n");
+  }
+  else
+  {
+    /*先释放一次*/
+    xSemaphoreGive(xHandleSemaphoreBinary);
+  }
+  
+  if(xHandleSemaphoreMutex == NULL)
+  {
+    printf("create mutex semaphore failed\r\n");  
+  }
+  
   /*创建10个uint8_t型的消息队列*/
   xQueue1 = xQueueCreate(10, sizeof(uint8_t));
   if(xQueue1 == NULL)
@@ -253,6 +299,7 @@ static void vTaskTaskUserIF(void *pvParameters)
     if(UserButtonStatus == 1)
     {
       //UserButtonStatus = 0;
+      //xSemaphoreTake(xHandleSemaphoreMutex, portMAX_DELAY);
       printf("============================================================\r\n");
       printf("TaskName TaskStatus Priority RemainStack TaskID\r\n");
       vTaskList((char *)pcWriteBuffer);
@@ -268,11 +315,12 @@ static void vTaskTaskUserIF(void *pvParameters)
       AXISRAMBuf[5] = AXISRAMCount++;
       AXISRAMBuf[9] = AXISRAMCount++;
       printf("UserButtonStatus = 1, AXISRAMBuf[0] = %d, AXISRAMBuf[5] = %d, AXISRAMBuf[9] = %d\r\n",AXISRAMBuf[0], AXISRAMBuf[5], AXISRAMBuf[9]);
-      
+      //xSemaphoreGive(xHandleSemaphoreMutex);
       
     }
     else if(UserButtonStatus == 2)
     {
+      //xSemaphoreTake(xHandleSemaphoreMutex, portMAX_DELAY);
       printf("UserButtonStatus = 2\r\ndelete led task\r\n");
       if(xHandleTaskLED != NULL)
       {
@@ -284,9 +332,16 @@ static void vTaskTaskUserIF(void *pvParameters)
       D2SRAMBuf[5] = D2SRAMCount++;
       D2SRAMBuf[9] = D2SRAMCount++;
       printf("UserButtonStatus = 2, D2SRAMBuf[0] = %d, D2SRAMBuf[5] = %d, D2SRAMBuf[9] = %d\r\n",D2SRAMBuf[0], D2SRAMBuf[5], D2SRAMBuf[9]);
+    
+      printf("UserButtonStatus = 2, send semaphore to vTaskMsgPro\r\n");
+      //xSemaphoreGive(xHandleSemaphoreMutex);
+      xSemaphoreGive(xHandleSemaphoreCounting);
+      printf("UserButtonStatus = 2, send MUTEX to vTaskStart\r\n");
+      xTaskNotifyGive(xHandleTaskStart);
     }
     else if(UserButtonStatus == 3)
     {
+      //xSemaphoreTake(xHandleSemaphoreMutex, portMAX_DELAY);
       printf("UserButtonStatus = 3\r\ncreate led task\r\n");
       if(xHandleTaskLED == NULL)
       {
@@ -301,6 +356,10 @@ static void vTaskTaskUserIF(void *pvParameters)
       D3SRAMBuf[5] = D3SRAMCount++;
       D3SRAMBuf[9] = D3SRAMCount++;
       printf("UserButtonStatus = 3, D3SRAMBuf[0] = %d, D3SRAMBuf[5] = %d, D3SRAMBuf[9] = %d\r\n",D3SRAMBuf[0], D3SRAMBuf[5], D3SRAMBuf[9]);
+      printf("***********************************************************************************\r\n");
+      printf("UserButtonStatus = 3, send task notify give to xHandleTaskMsgPro\r\n");
+      xTaskNotifyGive(xHandleTaskMsgPro);
+      //xSemaphoreGive(xHandleSemaphoreMutex);
     }
     else if(UserButtonStatus == 4)
     {
@@ -400,6 +459,10 @@ static void vTaskTaskUserIF(void *pvParameters)
       printf("vTaskLED priority is now setted to %d\r\n", (int)uxTaskPriorityGet(xHandleTaskLED));
       
       printf("UserButtonStatus = 9, start tim15 for sending event\r\n");
+      printf("*********************************************************************\r\n");
+      printf("UserButtonStatus = 9, start tim15 for sending semaphore\r\n");
+      //printf("*********************************************************************\r\n");
+      //printf("UserButtonStatus = 9, start tim15 for sending MUTEX\r\n");
       HAL_TIM_Base_Start_IT(&htim15);
       //printf("UserButtonStatus = 9\r\nresume wwdg feed task\r\n");
       //vTaskResume(xHandleTaskWwdg);
@@ -425,19 +488,90 @@ static void vTaskTaskUserIF(void *pvParameters)
       printf("vTaskLED priority is now setted to %d\r\n", (int)uxTaskPriorityGet(xHandleTaskLED));
       
       printf("UserButtonStatus = 10, start tim16 for sending event\r\n");
+      printf("*********************************************************************\r\n");
+      printf("UserButtonStatus = 10, start tim6 for sending MUTEX\r\n");
       HAL_TIM_Base_Start_IT(&htim16);
     }
     else if(UserButtonStatus == 11)
     {
-      printf("UserButtonStatus = 11\r\nJumpToBootloader\r\n");
-      JumpToBootLoader();
+        printf("------------------------------------------------------------------\r\n");
+        printf("UserButtonStatus = 11, set task notify event group bit 0\r\n");
+        xTaskNotify(xHandleTaskWwdg, (1 << 0), eSetBits);
       
+    }
+    else if(UserButtonStatus == 12)
+    {
+        printf("------------------------------------------------------------------\r\n");
+        printf("UserButtonStatus = 12, set task notify event group bit 1\r\n");
+        xTaskNotify(xHandleTaskWwdg, (1 << 1), eSetBits);
+    }
+    else if(UserButtonStatus == 13)
+    {
+        /*按键中断发送BIT2的事件标志*/
+    }
+    else if(UserButtonStatus == 14)
+    {
+        ucCount++;
+        printf("UserButtonStatus = 14, send task mail 'ucCount = %d' with overwrite to TaskIwdg\r\n", ucCount);
+        xTaskNotify(xHandleTaskIwdg, ucCount, eSetValueWithOverwrite);
+    }
+    else if(UserButtonStatus == 15)
+    {
+        ucCount++;
+        printf("UserButtonStatus = 15, send task mail 'ucCount = %d' without overwrite to TaskIwdg\r\n", ucCount);
+        if(xTaskNotify(xHandleTaskIwdg, ucCount, eSetValueWithoutOverwrite) == pdPASS)
+        {
+          printf("vTaskIwdg message mail is updated\r\n");
+        }
+        else
+        {
+          printf("vTaskIwdg message mail can not be updated\r\n");
+        }
+    }
+    else if(UserButtonStatus == 16)
+    {
+        /*按键中断发送消息邮箱 覆盖方式*/
+        
+    }
+    else if(UserButtonStatus == 17)
+    {
+        /*按键中断发送消息邮箱 非覆盖方式*/
+    }
+    else if(UserButtonStatus == 18)
+    {
+      printf("current free heap size = %d\r\n", xPortGetFreeHeapSize());
+      ptMsg = (MSG_T *)pvPortMalloc(sizeof(MSG_T));
+      printf("free heap size after malloc = %d\r\n", xPortGetFreeHeapSize());
+      
+      ptMsg->ucMessageID = 88;
+      ptMsg->ulData[0] = 89;
+      ptMsg->usData[0] = 8;
+      
+      if(xQueueSend(xQueue3, (void *)&ptMsg, (TickType_t)10) != pdPASS)
+      {
+        printf("xQueue3 Sending failed\r\n");
+        vPortFree(ptMsg);
+        printf("free heap size after free = %d\r\n", xPortGetFreeHeapSize());
+      }
+      else
+      {
+        printf("xQueue3 Sending success\r\n");
+        vPortFree(ptMsg);
+        printf("free heap size after free = %d\r\n", xPortGetFreeHeapSize());
+      }
+      
+    }
+    else if(UserButtonStatus == 19)
+    {
+        printf("JumpToBootloader\r\n");
+        JumpToBootLoader();
     }
     else
     {
       UserButtonStatus = 0;
       printf("UserButtonStatus reset to 0\r\n");
     }
+    //xSemaphoreGive(xHandleSemaphoreMutex);
     vTaskSuspend(xHandleTaskUserIF);
     vTaskDelay(20);
   }
@@ -474,14 +608,14 @@ static void vTaskLED(void *pvParameters)
     
     if(xResult == pdPASS)
     {
-      printf("msg queue receive success: ptMsg->ucMessageID = %d\r\n", ptMsg->ucMessageID);
-      printf("msg queue receive success: ptMsg->usData[0] = %d\r\n", ptMsg->usData[0]);
-      printf("msg queue receive success: ptMsg->ulData[0] = %d\r\n", ptMsg->ulData[0]);
+      //printf("msg queue receive success: ptMsg->ucMessageID = %d\r\n", ptMsg->ucMessageID);
+      //printf("msg queue receive success: ptMsg->usData[0] = %d\r\n", ptMsg->usData[0]);
+      //printf("msg queue receive success: ptMsg->ulData[0] = %d\r\n", ptMsg->ulData[0]);
       
     }
     else
     {
-      printf("receive queue2 msg failed\r\n");
+      //printf("receive queue2 msg failed\r\n");
     }
     
     xResult = xQueueReceive(xQueue2,
@@ -490,22 +624,22 @@ static void vTaskLED(void *pvParameters)
     
     if(xResult == pdPASS)
     {
-      printf("======================================================================================\r\n");
-      printf("msg queue receive success: ptMsg->ucMessageID = %d\r\n", ptMsg->ucMessageID);
-      printf("msg queue receive success: ptMsg->usData[1] = %d\r\n", ptMsg->usData[1]);
-      printf("msg queue receive success: ptMsg->ulData[1] = %d\r\n", ptMsg->ulData[1]);
+      //printf("======================================================================================\r\n");
+      //printf("msg queue receive success: ptMsg->ucMessageID = %d\r\n", ptMsg->ucMessageID);
+      //printf("msg queue receive success: ptMsg->usData[1] = %d\r\n", ptMsg->usData[1]);
+      //printf("msg queue receive success: ptMsg->ulData[1] = %d\r\n", ptMsg->ulData[1]);
     }
     else
     {
-      printf("receive queue2 msg failed\r\n");
+      //printf("receive queue2 msg failed\r\n");
     }
     
-    printf("now suspend all, vTaskLED working\r\n");
-    printf("xLastWakeTime = %d\r\n", xLastWakeTime);
+    //printf("now suspend all, vTaskLED working\r\n");
+    //printf("xLastWakeTime = %d\r\n", xLastWakeTime);
     BSP_LED_Toggle(LED1);
     //BSP_LED_Toggle(LED2);
     //BSP_LED_Toggle(LED3);
-    RTC_CalendarShow();
+    //RTC_CalendarShow();
     
 #if 0
     if(xTaskResumeAll() == pdTRUE) /*关闭调度锁，如果需要任务切换，此函数返回pdTRUE*/
@@ -536,6 +670,8 @@ static void vTaskMsgPro(void *pvParameters)
   uint8_t ucQueueMsgValue;
   uint8_t uiQueueMsgValue;
   
+  uint32_t ulNotifiedValue;
+  
   static uint8_t frameBuffer[101] = {0};
   memset((char *)(&frameBuffer[1]), '2', 100);
   HAL_UART_Transmit_DMA(&huart6, "uart6 dma transmit success\r\n", strlen("uart6 dma transmit success\r\n"));
@@ -551,24 +687,24 @@ static void vTaskMsgPro(void *pvParameters)
     
     if(xResult == pdPASS)
     {
-      printf("receive queue1 msg success\r\n");
-      printf("ucQueueMsgValue = %d\r\n", ucQueueMsgValue);
+      //printf("receive queue1 msg success\r\n");
+      //printf("ucQueueMsgValue = %d\r\n", ucQueueMsgValue);
     }
     else
     {
-      printf("receive queue1 msg failed\r\n");
+      //printf("receive queue1 msg failed\r\n");
     }
     
     xResult = xQueueReceive(xQueue1, (void *)&uiQueueMsgValue, (TickType_t)xMaxBlockTime);
     
     if(xResult == pdPASS)
     {
-      printf("receive queue1 msg success\r\n");
-      printf("uiQueueMsgValue = %d\r\n", uiQueueMsgValue);
+      //printf("receive queue1 msg success\r\n");
+      //printf("uiQueueMsgValue = %d\r\n", uiQueueMsgValue);
     }
     else
     {
-      printf("receive queue1 msg failed\r\n");
+      //printf("receive queue1 msg failed\r\n");
     }
     
     //HAL_UART_Transmit_DMA(&huart7, "uart7 dma transmit success\r\n", strlen("uart6 dma transmit success\r\n"));
@@ -581,6 +717,30 @@ static void vTaskMsgPro(void *pvParameters)
     {
       HAL_UART_Transmit(&huart7, frameBuffer, 100, 0xff);
     }
+    
+    xResult = xSemaphoreTake(xHandleSemaphoreCounting, (TickType_t)xMaxBlockTime);
+    //xSemaphoreTake(xHandleSemaphoreMutex, portMAX_DELAY);
+    if(xResult == pdTRUE)
+    {
+      printf("TaskMsgPro receive semaphore\r\n");
+    }
+    else
+    {
+      //printf("TaskMsgPro receive semaphore failed\r\n");
+    }
+    
+    /*
+        第一个参数设置为pdFALSE，任务vTaskMsgPro的TCB（任务控制块）中的变量ulNotifiedValue -1
+        设置为pdTRUE就是清零
+    */
+    ulNotifiedValue = ulTaskNotifyTake(pdFALSE, (TickType_t)xMaxBlockTime);
+    
+    if(ulNotifiedValue > 0)
+    {
+      printf("Task Notify success , ulNotifiedValue = %d\r\n", ulNotifiedValue);
+    }
+    
+    //xSemaphoreGive(xHandleSemaphoreMutex);
     vTaskDelay(1000);
   }
 }
@@ -611,6 +771,7 @@ static void vTaskStart(void *pvParameters)
   {
     if(UserButtonStatus == 6)
     {
+      //xSemaphoreTake(xHandleSemaphoreMutex, portMAX_DELAY);
       taskDISABLE_INTERRUPTS();
       eraseCpuFlash((uint32_t)para_flash_area);
       
@@ -628,6 +789,7 @@ static void vTaskStart(void *pvParameters)
       ptr32 = (uint32_t *)(para_flash_area + 32*2);
 
       taskENABLE_INTERRUPTS();
+      
       printf("userButtonStatus = 6\r\n");
       printf("write data: ucTest = %x, uiTest = %x, ulTest = %x\r\n", ucTest, uiTest, ulTest);
       printf("read data: ptr8 = %x, ptr16 = %x, ptr32 = %x\r\n", *ptr8, *ptr16, *ptr32);
@@ -655,7 +817,15 @@ static void vTaskStart(void *pvParameters)
               paraPtr->ucRadioMode);
       vTaskSuspend(xHandleTaskStart);
     }
+    //xSemaphoreGive(xHandleSemaphoreMutex);
     
+    else if(UserButtonStatus == 2 | UserButtonStatus == 10)
+    {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY); //设置为pdTRUE直接清零
+    
+        printf("vTaskStart receive task notify MUTEX\r\n");
+    }
+
     vTaskDelay(10);
   }
 }
@@ -669,9 +839,19 @@ static void vTaskIwdg(void *pvParameters)
   /*获取第一次唤醒时间*/
   xNextTime = xTaskGetTickCount() + xFrequency;
   
+  BaseType_t xResult;
+  uint32_t ulValue;
+  const TickType_t xMaxBlockTime = pdMS_TO_TICKS(500);
+  
   while(1)
   {
-    printf("use vTaskDelay to achieve vTaskDelayUntil(1000)\r\n");
+    xResult = xTaskNotifyWait(0x00000000, 0xFFFFFFFF, &ulValue, xMaxBlockTime);
+    
+    if(xResult == pdPASS)
+    {
+      printf("vTaskIwdg get message from task message email : %d\r\n", ulValue);
+    }
+    //printf("use vTaskDelay to achieve vTaskDelayUntil(1000)\r\n");
     xDelay = xNextTime - xTaskGetTickCount();
     //计算下次唤醒时间
     xNextTime += xFrequency;
@@ -699,6 +879,9 @@ static void vTaskWwdg(void *pvParameters)
 {
   EventBits_t uxBits;
   const TickType_t xTicksToWait = 100  / portTICK_PERIOD_MS;  /*100ms*/
+  uint32_t ulValue;
+  BaseType_t xResult;
+  
   while(1)
   {
     uxBits = xEventGroupWaitBits(xHandleEventGroup, 
@@ -717,6 +900,45 @@ static void vTaskWwdg(void *pvParameters)
       //printf("run overtime or bit not setted\r\n");
       //BSP_LED_Toggle(LED3);
     }
+    
+    xResult = xTaskNotifyWait(0x00000000, 0xFFFFFFFF, &ulValue, xTicksToWait);
+    
+    if(xResult == pdPASS)
+    {
+          if((ulValue & (1 << 0)) != 0)
+          {
+            printf("receive msg from task events group bit 0, ulNotifiedValue = 0x%08x\r\n", ulValue);
+          }
+      
+          if((ulValue & (1 << 1)) != 0)
+          {
+            printf("receive msg from task events group bit 1, ulNotifiedValue = 0x%08x\r\n", ulValue);
+          }
+          
+          if((ulValue & (1 << 2)) != 0)
+          {
+            printf("receive msg from task events group bit 2, ulNotifiedValue = 0x%08x\r\n", ulValue);
+          }
+      
+    }
+    
+       MSG_T *ptMsg;
+       BaseType_t xResult;
+       const TickType_t xMaxBlockTime = pdMS_TO_TICKS(200);
+       
+       xResult = xQueueReceive(xQueue3, (void *)&ptMsg, (TickType_t)xMaxBlockTime);
+       
+       if(xResult == pdPASS)
+       {
+            printf("UserButtonStatus = 18, ptMsg->usMessageID = %d\r\n", ptMsg->ucMessageID);
+            printf("UserButtonStatus = 18, ptMsg->ulData[0] = %d\r\n", ptMsg->ulData[0]);
+            printf("UserButtonStatus = 18, ptMsg->usData[0] = %d\r\n", ptMsg->usData[0]);
+       }
+       else
+       {
+         
+       }
+    
                                  
     vTaskDelay(1);
 #if 0
@@ -734,16 +956,16 @@ static void vTaskWwdg(void *pvParameters)
   }
 }
 
-/*
-static void vTaskRtcTimeStamp(void *pvParameters)
+#if 0
+static void vTaskMsgPro2(void *pvParameters)
 {
   while(1)
   {
-    RTC_CalendarShow();
+    printf("vTaskMsgPro2 sending\r\n");
     vTaskDelay(1000);
   }
 }
-*/
+#endif
 
 static void AppTaskCreate(void)
 {
@@ -751,7 +973,7 @@ static void AppTaskCreate(void)
               "vTaskUserIF",            /*任务�?*/
               512,                      /*stack大小，单位word，也就是4字节*/
               NULL,                     /*任务参数*/
-              5,                        /*任务优先�?*/
+                3,                        /*任务优先�?*/
               &xHandleTaskUserIF);      /*任务句柄*/
   
   xTaskCreate(vTaskLED,          /*任务函数*/
@@ -791,15 +1013,16 @@ static void AppTaskCreate(void)
                 &xHandleTaskWwdg
                 );
 #endif
-    /*
-    xTaskCreate(vTaskRtcTimeStamp,
-                "vTaskRtcTimeStamp",
+    
+#if 0
+    xTaskCreate(vTaskMsgPro2,
+                "vTaskMsgPro2",
                 512,
                 NULL,
-                3,
-                &xHandleTaskRtcTimeStamp
+                5,
+                &xHandleTaskMsgPro2
                 );
-    */
+#endif
 }
 
 
@@ -981,6 +1204,33 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     {
       portYIELD_FROM_ISR(xYieldRequired);
     }
+    
+    if(UserButtonStatus == 13)
+    {
+      BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+      printf("UserButtonStatus = 13, set task notify event group bit 2\r\n");
+      xTaskNotifyFromISR(xHandleTaskWwdg, (1 << 2), eSetBits, &xHigherPriorityTaskWoken);
+      
+      portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    }
+    else if(UserButtonStatus == 16)
+    {
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        /*按键中断发送消息邮箱 覆盖方式*/
+        printf("ISR send task message mail with overwrite 'UserButtonStatus %d'\r\n", UserButtonStatus);
+        xTaskNotifyFromISR(xHandleTaskIwdg, UserButtonStatus, eSetValueWithOverwrite, &xHigherPriorityTaskWoken);
+        
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    }
+    else if(UserButtonStatus == 17)
+    {
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        /*按键中断发送消息邮箱 非覆盖方式*/
+        printf("ISR send task message mail without overwrite 'UserButtonStatus %d\r\n", UserButtonStatus);
+        xTaskNotifyFromISR(xHandleTaskIwdg, UserButtonStatus, eSetValueWithoutOverwrite, &xHigherPriorityTaskWoken);
+      
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    }
   }
 }
 /* USER CODE END 4 */
@@ -1111,6 +1361,18 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
       portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
     
+    
+    xSemaphoreGiveFromISR(xHandleSemaphoreCounting, &xHigherPriorityTaskWoken);
+    
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    
+    printf("TIM15 send task notify to xHandleTaskMsgPro\r\n");
+    vTaskNotifyGiveFromISR(xHandleTaskMsgPro, &xHigherPriorityTaskWoken);
+    
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    
+    
+    
   }
   
   if(htim->Instance == TIM16)
@@ -1137,6 +1399,16 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
       /*消息被成功发出*/
       portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
+    
+    printf("TIM16 send task notify to xHandleTaskMsgPro\r\n");
+    vTaskNotifyGiveFromISR(xHandleTaskMsgPro, &xHigherPriorityTaskWoken);
+    
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    
+    printf("TIM16 send task notify MUTEX to xHandleTaskStart\r\n");
+    vTaskNotifyGiveFromISR(xHandleTaskStart, &xHigherPriorityTaskWoken);
+    
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
   }
 
   /* USER CODE END Callback 1 */

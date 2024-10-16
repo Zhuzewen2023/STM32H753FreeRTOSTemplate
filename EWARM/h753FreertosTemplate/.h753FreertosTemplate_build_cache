@@ -14,5 +14,17 @@
                 <Path>D:\MyProject\FreeRTOS_Project\h753FreertosTemplate2\EWARM\h753FreertosTemplate\List\h753FreertosTemplate.map</Path>
             </Output>
         </Parent>
+        <Parent>
+            <Path>D:\MyProject\FreeRTOS_Project\h753FreertosTemplate4\EWARM\h753FreertosTemplate\Exe\h753FreertosTemplate.out</Path>
+            <Output>
+                <Path>D:\MyProject\FreeRTOS_Project\h753FreertosTemplate4\EWARM\h753FreertosTemplate\List\h753FreertosTemplate.map</Path>
+            </Output>
+        </Parent>
+        <Parent>
+            <Path>D:\MyProject\FreeRTOS_Project\h753FreertosTemplate3\EWARM\h753FreertosTemplate\Exe\h753FreertosTemplate.out</Path>
+            <Output>
+                <Path>D:\MyProject\FreeRTOS_Project\h753FreertosTemplate3\EWARM\h753FreertosTemplate\List\h753FreertosTemplate.map</Path>
+            </Output>
+        </Parent>
     </Tool>
 </BuildDb>
